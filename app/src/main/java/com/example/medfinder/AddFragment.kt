@@ -23,13 +23,15 @@ class AddFragment : Fragment() {
 
         db = FirebaseFirestore.getInstance()
 
-        val medName = view.findViewById<EditText>(R.id.med_name)
+        val medBrandName = view.findViewById<EditText>(R.id.brand_name)
         val medCategory = view.findViewById<EditText>(R.id.med_category)
+        val medName = view.findViewById<EditText>(R.id.med_name)
         val medPrice = view.findViewById<EditText>(R.id.med_price)
         val medStock = view.findViewById<EditText>(R.id.med_stock)
         val saveButton = view.findViewById<Button>(R.id.btn_save)
 
         saveButton.setOnClickListener {
+            val brand = medBrandName.text.toString().trim()
             val name = medName.text.toString().trim()
             val category = medCategory.text.toString().trim()
             val price = medPrice.text.toString().toIntOrNull() ?: 0
@@ -41,8 +43,9 @@ class AddFragment : Fragment() {
             }
 
             val medicine = hashMapOf(
-                "brand_name" to name,
+                "brand_name" to brand,
                 "category" to category,
+                "medicine_name" to name,
                 "price" to price,
                 "stock" to stock
             )

@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.firestore.FirebaseFirestore
 import androidx.appcompat.app.AlertDialog
 import android.widget.Button
+import android.widget.ImageButton
 
 class MedicineAdapter(
     private val medicineList: MutableList<Medicine>,
@@ -27,8 +28,13 @@ class MedicineAdapter(
 
     override fun onBindViewHolder(holder: MedicineViewHolder, position: Int) {
         val medicine = medicineList[position]
-        holder.name.text = medicine.brand_name
-        holder.category.text = medicine.category
+        holder.name.text = medicine.medicine_name
+        holder.price.text = medicine.price.toString()
+        holder.quantity.text = medicine.stock.toString()
+        holder.brand.text = medicine.brand_name
+
+
+
         if (showActions) {
             holder.editBtn.visibility = View.VISIBLE
             holder.deleteBtn.visibility = View.VISIBLE
@@ -79,8 +85,10 @@ class MedicineAdapter(
 
     class MedicineViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val name: TextView = itemView.findViewById(R.id.med_name)
-        val category: TextView = itemView.findViewById(R.id.med_category)
-        val editBtn: Button = itemView.findViewById(R.id.btn_edit)
-        val deleteBtn: Button = itemView.findViewById(R.id.btn_delete)
+        val price: TextView = itemView.findViewById(R.id.med_price)
+        val quantity: TextView = itemView.findViewById(R.id.med_stock)
+        val brand: TextView = itemView.findViewById(R.id.med_brand)
+        val editBtn: ImageButton = itemView.findViewById(R.id.btn_edit)
+        val deleteBtn: ImageButton = itemView.findViewById(R.id.btn_delete)
     }
 }
