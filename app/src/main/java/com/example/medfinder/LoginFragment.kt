@@ -2,20 +2,15 @@ package com.example.medfinder
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.fragment.app.Fragment
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.navigation.fragment.findNavController
 import com.google.firebase.firestore.FirebaseFirestore
 import android.content.Context
 
 
-class LoginActivity : AppCompatActivity() {
+class LoginFragment : AppCompatActivity() {
 
     private var selectedRole: String = "customer"
     private lateinit var db: FirebaseFirestore
@@ -27,24 +22,12 @@ class LoginActivity : AppCompatActivity() {
         db = FirebaseFirestore.getInstance()
 
         // UI references
-        val customerBtn = findViewById<Button>(R.id.btnCustomer)
-        val pharmacyBtn = findViewById<Button>(R.id.btnPharmacy)
         val username = findViewById<EditText>(R.id.username_input)
         val password = findViewById<EditText>(R.id.password_input)
         val loginBtn = findViewById<Button>(R.id.login_btn)
 
-        // Role buttons
-        customerBtn.setOnClickListener {
-            selectedRole = "customer"
-            customerBtn.isSelected = true
-            pharmacyBtn.isSelected = false
-        }
+        selectedRole = "pharmacy"
 
-        pharmacyBtn.setOnClickListener {
-            selectedRole = "pharmacy"
-            customerBtn.isSelected = false
-            pharmacyBtn.isSelected = true
-        }
 
         // Login button
         loginBtn.setOnClickListener {
@@ -81,11 +64,8 @@ class LoginActivity : AppCompatActivity() {
                         saveUserSession(userId, role, doc.data)
 
                         // Navigate to appropriate activity
-                        if (role == "customer") {
                             startActivity(Intent(this, CustomerMainActivity::class.java))
-                        } else {
-                            startActivity(Intent(this, MainActivity::class.java))
-                        }
+
                         finish()
                     } else {
                         Toast.makeText(this, "Invalid username or password", Toast.LENGTH_SHORT).show()
