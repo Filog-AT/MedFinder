@@ -10,6 +10,10 @@ android {
         version = release(36)
     }
 
+    buildFeatures {
+        viewBinding = true
+    }
+
     defaultConfig {
         applicationId = "com.example.medfinder"
         minSdk = 24
@@ -39,6 +43,7 @@ android {
     }
 }
 
+
 dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -60,4 +65,8 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx:25.1.4")
     implementation("org.osmdroid:osmdroid-android:6.1.18")
     implementation("com.google.firebase:firebase-auth:24.0.1")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("com.google.firebase:firebase-firestore:24.10.0")
+    implementation("com.google.firebase:firebase-bom:32.7.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
 }

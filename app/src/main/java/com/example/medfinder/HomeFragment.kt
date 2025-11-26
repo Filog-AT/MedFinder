@@ -32,7 +32,19 @@ class HomeFragment : Fragment() {
     }
 
     private fun loadLowStockMedicines() {
-        db.collection("Medicines")
+        // Get the current pharmacy ID from shared preferences
+        val sharedPref = requireContext().getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+        val pharmacyId = sharedPref.getString("pharmacy_id", null)
+
+        if (pharmacyId == null) {
+            Log.e("HomeFragment", "No pharmacy ID found in session")
+            return
+        }
+
+        // Query the specific pharmacy's Medicines subcollection
+        db.collection("Pharmacies")
+            .document(pharmacyId)
+            .collection("Medicines")
             .get()
             .addOnSuccessListener { result ->
                 medicines.clear()
@@ -40,20 +52,22 @@ class HomeFragment : Fragment() {
                     val stock = document.getLong("stock") ?: 0
                     if (stock < 10) {
                         val medicine = Medicine(
+                            id = document.id,
                             brand_name = document.getString("brand_name") ?: "",
                             medicine_name = document.getString("medicine_name") ?: "",
                             category = document.getString("category") ?: "",
-                            pharmacy_id = document.getString("pharmacy_id") ?: "",
+                            pharmacy_id = pharmacyId,
                             price = (document.getLong("price") ?: 0L).toInt(),
-                            stock = (document.getLong("stock") ?: 0L).toInt()
+                            stock = stock.toInt()
                         )
                         medicines.add(medicine)
                     }
                 }
                 adapter.notifyDataSetChanged()
+                Log.d("HomeFragment", "Loaded ${medicines.size} low stock medicines")
             }
             .addOnFailureListener { e ->
-                Log.w("Firestore", "Error getting documents", e)
+                Log.e("HomeFragment", "Error loading low stock medicines", e)
             }
     }
 }

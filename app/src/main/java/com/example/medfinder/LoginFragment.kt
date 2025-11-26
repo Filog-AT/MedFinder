@@ -9,10 +9,8 @@ import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.firestore.FirebaseFirestore
 import android.content.Context
 
-
 class LoginFragment : AppCompatActivity() {
 
-    private var selectedRole: String = "customer"
     private lateinit var db: FirebaseFirestore
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -26,9 +24,6 @@ class LoginFragment : AppCompatActivity() {
         val password = findViewById<EditText>(R.id.password_input)
         val loginBtn = findViewById<Button>(R.id.login_btn)
 
-        selectedRole = "pharmacy"
-
-
         // Login button
         loginBtn.setOnClickListener {
             val user = username.text.toString().trim()
@@ -39,10 +34,10 @@ class LoginFragment : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Query Users collection instead of Pharmacies
+            // Query Users collection
             db.collection("Users")
                 .whereEqualTo("username", user)
-                .whereEqualTo("password", pass) // In production, use Firebase Auth
+                .whereEqualTo("password", pass)
                 .whereEqualTo("is_active", true)
                 .get()
                 .addOnSuccessListener { documents ->
@@ -50,22 +45,19 @@ class LoginFragment : AppCompatActivity() {
                         val doc = documents.documents[0]
                         val role = doc.getString("role") ?: "customer"
 
-                        if (role != selectedRole) {
-                            Toast.makeText(
-                                this,
-                                "Selected role does not match account role",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            return@addOnSuccessListener
-                        }
-
-                        // Save user data to SharedPreferences or pass to next activity
+                        // Save user data to SharedPreferences
                         val userId = doc.getString("user_id") ?: doc.id
                         saveUserSession(userId, role, doc.data)
 
-                        // Navigate to appropriate activity
-                            startActivity(Intent(this, CustomerMainActivity::class.java))
-
+                        // Navigate to appropriate activity based on role
+                        when (role) {
+                            "pharmacy" -> {
+                                startActivity(Intent(this, MainActivity::class.java))
+                            }
+                            else -> {
+                                startActivity(Intent(this, CustomerMainActivity::class.java))
+                            }
+                        }
                         finish()
                     } else {
                         Toast.makeText(this, "Invalid username or password", Toast.LENGTH_SHORT).show()

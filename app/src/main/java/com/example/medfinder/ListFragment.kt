@@ -2,14 +2,14 @@ package com.example.medfinder
 
 import Medicine
 import android.os.Bundle
-import androidx.fragment.app.Fragment
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.firestore.FirebaseFirestore
-import android.util.Log
 
 class ListFragment : Fragment() {
     private lateinit var recyclerView: RecyclerView
@@ -26,24 +26,63 @@ class ListFragment : Fragment() {
         recyclerView.layoutManager = LinearLayoutManager(context)
         adapter = MedicineAdapter(medicines, showActions = true)
         recyclerView.adapter = adapter
-        loadData()
+        loadPharmacyInventory()
         return view
     }
 
-    private fun loadData() {
-        db.collection("Medicines")
+    private fun loadPharmacyInventory() {
+        // Get the current pharmacy ID from shared preferences or session
+        val sharedPref = requireContext().getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+        val pharmacyId = sharedPref.getString("pharmacy_id", null)
+
+        if (pharmacyId == null) {
+            Log.e("ListFragment", "No pharmacy ID found in session")
+            return
+        }
+
+        Log.d("ListFragment", "Loading inventory for pharmacy: $pharmacyId")
+
+        // Query the specific pharmacy's Medicines subcollection
+        db.collection("Pharmacies")
+            .document(pharmacyId)
+            .collection("Medicines")
             .get()
             .addOnSuccessListener { result ->
                 medicines.clear()
                 for (document in result) {
-                    val med = document.toObject(Medicine::class.java)
-                    medicines.add(med)
+                    try {
+                        val brandName = document.getString("brand_name") ?: ""
+                        val medicineName = document.getString("medicine_name") ?: "Unknown Medicine"
+                        val category = document.getString("category") ?: ""
+                        val price = document.getLong("price")?.toInt() ?: 0
+                        val stock = document.getLong("stock")?.toInt() ?: 0
+
+                        val med = Medicine(
+                            id = document.id,
+                            brand_name = brandName,
+                            medicine_name = medicineName,
+                            category = category,
+                            pharmacy_id = pharmacyId,
+                            price = price,
+                            stock = stock
+                        )
+                        medicines.add(med)
+                        Log.d("ListFragment", "Loaded medicine: $medicineName, Stock: $stock, Price: $price")
+                    } catch (e: Exception) {
+                        Log.e("ListFragment", "Error parsing medicine document: ${e.message}")
+                    }
                 }
                 adapter.notifyDataSetChanged()
+                Log.d("ListFragment", "Loaded ${medicines.size} medicines")
             }
             .addOnFailureListener { e ->
-                Log.w("Firestore", "Error getting documents", e)
+                Log.e("ListFragment", "Error loading pharmacy inventory", e)
             }
     }
-}
 
+    // Optional: Refresh data when fragment becomes visible again
+    override fun onResume() {
+        super.onResume()
+        loadPharmacyInventory()
+    }
+}

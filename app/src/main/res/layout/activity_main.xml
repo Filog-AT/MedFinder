@@ -32,7 +32,12 @@
         android:layout_height="0dp"
         android:layout_gravity="bottom"
         app:layout_constraintBottom_toBottomOf="parent"
-        android:background="@android:color/transparent"
+        android:background="@drawable/bottom_nav_background"
+        android:elevation="8dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        app:itemIconTint="@drawable/bottom_nav_icon_colors"
+        app:itemTextColor="@drawable/bottom_nav_text_colors"
         app:menu="@menu/btm_nav"/>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
