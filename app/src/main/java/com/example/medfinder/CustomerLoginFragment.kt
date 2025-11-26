@@ -19,7 +19,6 @@ class CustomerLoginFragment : AppCompatActivity() {
 
         db = FirebaseFirestore.getInstance()
 
-        // UI references
         val username = findViewById<EditText>(R.id.username_input)
         val password = findViewById<EditText>(R.id.password_input)
         val loginBtn = findViewById<Button>(R.id.login_btn)
@@ -28,7 +27,6 @@ class CustomerLoginFragment : AppCompatActivity() {
         selectedRole = "customer"
 
 
-        // Login button
         loginBtn.setOnClickListener {
             val user = username.text.toString().trim()
             val pass = password.text.toString().trim()
@@ -38,10 +36,9 @@ class CustomerLoginFragment : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Query Users collection instead of Pharmacies
             db.collection("Users")
                 .whereEqualTo("username", user)
-                .whereEqualTo("password", pass) // In production, use Firebase Auth
+                .whereEqualTo("password", pass)
                 .whereEqualTo("is_active", true)
                 .get()
                 .addOnSuccessListener { documents ->
@@ -58,11 +55,9 @@ class CustomerLoginFragment : AppCompatActivity() {
                             return@addOnSuccessListener
                         }
 
-                        // Save user data to SharedPreferences or pass to next activity
                         val userId = doc.getString("user_id") ?: doc.id
                         saveUserSession(userId, role, doc.data)
 
-                        // Navigate to appropriate activity
                         startActivity(Intent(this, CustomerMainActivity::class.java))
 
                         finish()
@@ -89,12 +84,10 @@ class CustomerLoginFragment : AppCompatActivity() {
         editor.putString("USER_ROLE", role)
         editor.putBoolean("IS_LOGGED_IN", true)
 
-        // Optionally save other user data if needed
-        // For example, save the username
         userData?.get("username")?.let { username ->
             editor.putString("USERNAME", username.toString())
         }
 
-        editor.apply() // Use apply() to save changes asynchronously
+        editor.apply()
     }
 }

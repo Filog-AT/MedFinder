@@ -46,12 +46,10 @@ class MapFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         isFragmentActive = true
 
-        // Get the shared ViewModel
         sharedViewModel = ViewModelProvider(requireActivity())[SharedViewModel::class.java]
 
         setupMap()
 
-        // Wait a bit longer to ensure everything is initialized
         view.postDelayed({
             val searchQuery = sharedViewModel.searchQuery
             Log.d("MapFragment", "🔍 ViewModel search query: '$searchQuery'")
@@ -63,7 +61,7 @@ class MapFragment : Fragment() {
                 Log.d("MapFragment", "📍 Showing ALL PHARMACIES (no search)")
                 showAllPharmacies()
             }
-        }, 1000) // Increased delay to 1 second
+        }, 1000)
     }
 
     private fun setupMap() {
@@ -150,7 +148,6 @@ class MapFragment : Fragment() {
     ) {
         Log.d("MapFragment", "Checking stock for $pharmacyName - Medicine: $medicineName")
 
-        // TEMPORARY: Query only by medicine_name first, then filter stock locally
         db.collection("Pharmacies")
             .document(pharmacyId)
             .collection("Medicines")
@@ -159,7 +156,6 @@ class MapFragment : Fragment() {
             .addOnSuccessListener { inventoryResult ->
                 if (!isFragmentActive) return@addOnSuccessListener
 
-                // Filter for stock > 0 locally
                 val hasMedicine = inventoryResult.any { document ->
                     val stock = document.getLong("stock") ?: 0
                     stock > 0

@@ -19,12 +19,10 @@ class LoginFragment : AppCompatActivity() {
 
         db = FirebaseFirestore.getInstance()
 
-        // UI references
         val username = findViewById<EditText>(R.id.username_input)
         val password = findViewById<EditText>(R.id.password_input)
         val loginBtn = findViewById<Button>(R.id.login_btn)
 
-        // Login button
         loginBtn.setOnClickListener {
             val user = username.text.toString().trim()
             val pass = password.text.toString().trim()
@@ -34,7 +32,6 @@ class LoginFragment : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Query Users collection
             db.collection("Users")
                 .whereEqualTo("username", user)
                 .whereEqualTo("password", pass)
@@ -45,11 +42,9 @@ class LoginFragment : AppCompatActivity() {
                         val doc = documents.documents[0]
                         val role = doc.getString("role") ?: "customer"
 
-                        // Save user data to SharedPreferences
                         val userId = doc.getString("user_id") ?: doc.id
                         saveUserSession(userId, role, doc.data)
 
-                        // Navigate to appropriate activity based on role
                         when (role) {
                             "pharmacy" -> {
                                 startActivity(Intent(this, MainActivity::class.java))

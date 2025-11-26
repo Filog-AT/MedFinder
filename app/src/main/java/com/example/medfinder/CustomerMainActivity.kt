@@ -32,17 +32,14 @@ class CustomerMainActivity : AppCompatActivity() {
             insets
         }
 
-        // Initialize ViewModel
         sharedViewModel = ViewModelProvider(this)[SharedViewModel::class.java]
 
-        // Initialize with default medicines
         medicineSuggestions.addAll(getDefaultMedicines())
         suggestionsAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, medicineSuggestions)
 
         setupViews()
         loadMedicineSuggestionsFromFirestore()
 
-        // Load initial fragment
         if (savedInstanceState == null) {
             replaceFragment(CustomerHomeFragment())
         }
@@ -65,10 +62,8 @@ class CustomerMainActivity : AppCompatActivity() {
             }
         })
 
-        // Setup search suggestions
         setupSearchSuggestions(searchView)
 
-        // Setup bottom navigation - SIMPLIFIED
         bottomNav.setOnItemSelectedListener { item ->
             when(item.itemId) {
                 R.id.home -> {
@@ -77,7 +72,6 @@ class CustomerMainActivity : AppCompatActivity() {
                     replaceFragment(CustomerHomeFragment())
                 }
                 R.id.map -> {
-                    // Always create new MapFragment to ensure it gets the latest ViewModel state
                     replaceFragment(MapFragment())
                 }
             }
@@ -160,17 +154,13 @@ class CustomerMainActivity : AppCompatActivity() {
         Log.d("Search", "Performing search for: $medicineName")
         Toast.makeText(this, "Searching for: $medicineName", Toast.LENGTH_SHORT).show()
 
-        // Store search query in ViewModel
         sharedViewModel.searchQuery = medicineName
         Log.d("Search", "Saved to ViewModel: $medicineName")
 
-        // Navigate to MapFragment
         replaceFragment(MapFragment())
 
-        // Switch to map tab
         findViewById<BottomNavigationView>(R.id.bottomNavigationView).selectedItemId = R.id.map
 
-        // Clear search
         findViewById<SearchView>(R.id.search).setQuery("", false)
         findViewById<SearchView>(R.id.search).clearFocus()
     }
@@ -178,6 +168,6 @@ class CustomerMainActivity : AppCompatActivity() {
     private fun replaceFragment(fragment: Fragment) {
         supportFragmentManager.beginTransaction()
             .replace(R.id.customer_nav_host, fragment)
-            .commitNow() // Use commitNow to execute immediately
+            .commitNow()
     }
 }

@@ -32,7 +32,6 @@ class HomeFragment : Fragment() {
     }
 
     private fun loadLowStockMedicines() {
-        // Get the current pharmacy ID from shared preferences
         val sharedPref = requireContext().getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
         val pharmacyId = sharedPref.getString("pharmacy_id", null)
 
@@ -41,7 +40,6 @@ class HomeFragment : Fragment() {
             return
         }
 
-        // Query the specific pharmacy's Medicines subcollection
         db.collection("Pharmacies")
             .document(pharmacyId)
             .collection("Medicines")

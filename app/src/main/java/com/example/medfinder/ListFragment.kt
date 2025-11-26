@@ -31,7 +31,6 @@ class ListFragment : Fragment() {
     }
 
     private fun loadPharmacyInventory() {
-        // Get the current pharmacy ID from shared preferences or session
         val sharedPref = requireContext().getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
         val pharmacyId = sharedPref.getString("pharmacy_id", null)
 
@@ -42,7 +41,6 @@ class ListFragment : Fragment() {
 
         Log.d("ListFragment", "Loading inventory for pharmacy: $pharmacyId")
 
-        // Query the specific pharmacy's Medicines subcollection
         db.collection("Pharmacies")
             .document(pharmacyId)
             .collection("Medicines")
@@ -80,7 +78,6 @@ class ListFragment : Fragment() {
             }
     }
 
-    // Optional: Refresh data when fragment becomes visible again
     override fun onResume() {
         super.onResume()
         loadPharmacyInventory()
