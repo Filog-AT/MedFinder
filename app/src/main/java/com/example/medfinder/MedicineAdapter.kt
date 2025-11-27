@@ -14,11 +14,11 @@ import android.widget.ImageButton
 
 class MedicineAdapter(
     private val medicineList: MutableList<Medicine>,
+    private val pharmacyId: String,
     private val showActions: Boolean = true
 ) : RecyclerView.Adapter<MedicineAdapter.MedicineViewHolder>() {
 
     private val db = FirebaseFirestore.getInstance()
-
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MedicineViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -33,8 +33,6 @@ class MedicineAdapter(
         holder.quantity.text = medicine.stock.toString()
         holder.brand.text = medicine.brand_name
 
-
-
         if (showActions) {
             holder.editBtn.visibility = View.VISIBLE
             holder.deleteBtn.visibility = View.VISIBLE
@@ -45,7 +43,7 @@ class MedicineAdapter(
 
         holder.deleteBtn.setOnClickListener {
             medicine.id?.let { id ->
-                db.collection("medicines").document(id)
+                db.collection("Pharmacies").document(pharmacyId).collection("Medicines").document(id)
                     .delete()
                     .addOnSuccessListener {
                         medicineList.removeAt(position)

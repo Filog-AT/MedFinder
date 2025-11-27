@@ -24,38 +24,40 @@ class AddFragment : Fragment() {
         db = FirebaseFirestore.getInstance()
 
         val medBrandName = view.findViewById<EditText>(R.id.brand_name)
-        val medCategory = view.findViewById<EditText>(R.id.med_category)
-        val medName = view.findViewById<EditText>(R.id.med_name)
-        val medPrice = view.findViewById<EditText>(R.id.med_price)
-        val medStock = view.findViewById<EditText>(R.id.med_stock)
+        val medName = view.findViewById<EditText>(R.id.medicine_name)
+        val medPrice = view.findViewById<EditText>(R.id.price)
+        val medStock = view.findViewById<EditText>(R.id.stock)
         val saveButton = view.findViewById<Button>(R.id.btn_save)
 
         saveButton.setOnClickListener {
             val brand = medBrandName.text.toString().trim()
             val name = medName.text.toString().trim()
-            val category = medCategory.text.toString().trim()
             val price = medPrice.text.toString().toIntOrNull() ?: 0
             val stock = medStock.text.toString().toIntOrNull() ?: 0
 
-            if (name.isEmpty() || category.isEmpty()) {
-                Toast.makeText(context, "Please fill all fields", Toast.LENGTH_SHORT).show()
+            val sharedPref = requireContext().getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+            val pharmacyId = sharedPref.getString("pharmacy_id", null)
+
+            if (pharmacyId == null) {
+                Toast.makeText(context, "Error: Pharmacy not found", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
             val medicine = hashMapOf(
                 "brand_name" to brand,
-                "category" to category,
                 "medicine_name" to name,
                 "price" to price,
                 "stock" to stock
             )
 
-            db.collection("Medicines")
+            db.collection("Pharmacies")
+                .document(pharmacyId)
+                .collection("Medicines")
                 .add(medicine)
                 .addOnSuccessListener {
                     Toast.makeText(context, "Medicine added!", Toast.LENGTH_SHORT).show()
+                    medBrandName.text.clear()
                     medName.text.clear()
-                    medCategory.text.clear()
                     medPrice.text.clear()
                     medStock.text.clear()
                 }

@@ -25,8 +25,13 @@ class HomeFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_home, container, false)
         recyclerView = view.findViewById(R.id.low_stock_list)
         recyclerView.layoutManager = LinearLayoutManager(context)
-        adapter = MedicineAdapter(medicines, showActions = false)
+
+        val sharedPref = requireContext().getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+        val pharmacyId = sharedPref.getString("pharmacy_id", "") ?: ""
+
+        adapter = MedicineAdapter(medicines, pharmacyId, showActions = false)
         recyclerView.adapter = adapter
+
         loadLowStockMedicines()
         return view
     }
@@ -53,7 +58,6 @@ class HomeFragment : Fragment() {
                             id = document.id,
                             brand_name = document.getString("brand_name") ?: "",
                             medicine_name = document.getString("medicine_name") ?: "",
-                            category = document.getString("category") ?: "",
                             pharmacy_id = pharmacyId,
                             price = (document.getLong("price") ?: 0L).toInt(),
                             stock = stock.toInt()

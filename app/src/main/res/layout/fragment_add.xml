@@ -25,20 +25,7 @@
             android:inputType="text"/>
 
         <EditText
-            android:id="@+id/med_category"
-            android:hint="Category"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/rounded_corner"
-            android:textColor="@color/black"
-            android:textColorHint="@color/white"
-            android:textSize="20dp"
-            android:padding="18dp"
-            android:inputType="text"/>
-
-        <EditText
-            android:id="@+id/med_name"
+            android:id="@+id/medicine_name"
             android:hint="Name"
             android:inputType="text"
             android:layout_width="match_parent"
@@ -51,7 +38,7 @@
             android:padding="18dp" />
 
         <EditText
-            android:id="@+id/med_price"
+            android:id="@+id/price"
             android:hint="Price"
             android:inputType="number"
             android:layout_width="match_parent"
@@ -64,7 +51,7 @@
             android:padding="18dp" />
 
         <EditText
-            android:id="@+id/med_stock"
+            android:id="@+id/stock"
             android:hint="Stock Quantity"
             android:inputType="number"
             android:layout_width="match_parent"

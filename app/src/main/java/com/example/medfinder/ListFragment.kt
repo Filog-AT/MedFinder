@@ -24,8 +24,13 @@ class ListFragment : Fragment() {
         val view = inflater.inflate(R.layout.fragment_list, container, false)
         recyclerView = view.findViewById(R.id.med_list)
         recyclerView.layoutManager = LinearLayoutManager(context)
-        adapter = MedicineAdapter(medicines, showActions = true)
+
+        val sharedPref = requireContext().getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
+        val pharmacyId = sharedPref.getString("pharmacy_id", "") ?: ""
+
+        adapter = MedicineAdapter(medicines, pharmacyId, showActions = true)
         recyclerView.adapter = adapter
+
         loadPharmacyInventory()
         return view
     }
