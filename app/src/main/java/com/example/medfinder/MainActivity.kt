@@ -1,6 +1,7 @@
 package com.example.medfinder
 
 import android.content.ContentValues.TAG
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.enableEdgeToEdge
@@ -23,20 +24,33 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         val pharmacyNameText = findViewById<TextView>(R.id.pharma_name)
         val db = FirebaseFirestore.getInstance()
-        val user = FirebaseAuth.getInstance().currentUser
+        val sharedPref = getSharedPreferences("user_session", Context.MODE_PRIVATE)
+        val pharmacyId = sharedPref.getString("pharmacy_id", null)
+        val username = sharedPref.getString("username", null)
 
-        if (user != null) {
-            val pharmacyRef = db.collection("Pharmacies").document(user.uid)
+        Log.d("MainActivity", "📋 Retrieved from SharedPreferences:")
+        Log.d("MainActivity", "   pharmacy_id: $pharmacyId")
+        Log.d("MainActivity", "   username: $username")
+
+        if (pharmacyId == null) {
+            Log.e("MainActivity", "❌ No pharmacy_id found in SharedPreferences")
+            pharmacyNameText.text = "Pharmacy" // Default fallback
+        } else {
+            // Load pharmacy name using the pharmacy_id from SharedPreferences
+            val pharmacyRef = db.collection("Pharmacies").document(pharmacyId)
             pharmacyRef.get()
                 .addOnSuccessListener { document ->
                     if (document != null && document.exists()) {
                         val name = document.getString("pharmacy_name")
+                        Log.d("MainActivity", "✅ Loaded pharmacy name: $name")
                         pharmacyNameText.text = name ?: "Pharmacy"
                     } else {
+                        Log.e("MainActivity", "❌ Pharmacy document not found for ID: $pharmacyId")
                         pharmacyNameText.text = "Pharmacy"
                     }
                 }
-                .addOnFailureListener {
+                .addOnFailureListener { e ->
+                    Log.e("MainActivity", "❌ Error loading pharmacy", e)
                     pharmacyNameText.text = "Pharmacy"
                 }
         }

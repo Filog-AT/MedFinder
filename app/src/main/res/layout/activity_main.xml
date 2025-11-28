@@ -13,7 +13,7 @@
         android:layout_width="match_parent"
         android:layout_height="60dp"
         android:text="Pharmacy"
-        android:textSize="20sp"
+        android:textSize="40sp"
         android:gravity="center"
         android:textColor="@android:color/black"
         app:layout_constraintTop_toTopOf="parent"
