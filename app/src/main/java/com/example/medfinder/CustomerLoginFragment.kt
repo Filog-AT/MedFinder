@@ -2,6 +2,7 @@ package com.example.medfinder
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
@@ -71,6 +72,11 @@ class CustomerLoginFragment : AppCompatActivity() {
         }
 
         guestloginBtn.setOnClickListener {
+            // Set user as guest
+            LoginUtils.setAsGuest(this)
+
+            Log.d("CustomerLogin", "Guest login - set as guest user")
+
             val intent = Intent(this, CustomerMainActivity::class.java)
             startActivity(intent)
             finish()

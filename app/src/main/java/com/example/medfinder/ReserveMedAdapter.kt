@@ -11,7 +11,8 @@ import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 
 class ReservationMedicineAdapter(
-    private val medicineList: List<Medicine>
+    private val medicineList: List<Medicine>,
+    private val canReserve: Boolean = false
 ) : RecyclerView.Adapter<ReservationMedicineAdapter.ReservationViewHolder>() {
 
     private val selectedMedicines = mutableMapOf<String, Pair<Medicine, Int>>()
@@ -29,6 +30,25 @@ class ReservationMedicineAdapter(
         holder.brand.text = medicine.brand_name
         holder.price.text = "Price: ₱${medicine.price}"
         holder.stock.text = "Available: ${medicine.stock}"
+
+        if (!canReserve) {
+            holder.checkBox.isEnabled = false
+            holder.quantityEditText.isEnabled = false
+            holder.checkBox.alpha = 0.5f
+            holder.quantityEditText.alpha = 0.5f
+
+            // Show message why
+            holder.itemView.setOnClickListener {
+                Toast.makeText(holder.itemView.context,
+                    "Please login as customer to select medicines",
+                    Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            holder.checkBox.isEnabled = true
+            holder.quantityEditText.isEnabled = holder.checkBox.isChecked
+            holder.checkBox.alpha = 1f
+            holder.quantityEditText.alpha = 1f
+        }
 
         holder.checkBox.setOnCheckedChangeListener(null) // Clear previous listener
 

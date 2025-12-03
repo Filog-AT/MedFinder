@@ -165,7 +165,7 @@ class CustomerMainActivity : AppCompatActivity() {
         findViewById<SearchView>(R.id.search).clearFocus()
     }
 
-    private fun replaceFragment(fragment: Fragment) {
+    fun replaceFragment(fragment: Fragment) {
         supportFragmentManager.beginTransaction()
             .replace(R.id.customer_nav_host, fragment)
             .commitNow()

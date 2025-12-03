@@ -61,10 +61,10 @@ class MedicineReservationFragment : Fragment() {
         pharmacyNameTextView = view.findViewById(R.id.tv_pharmacy_name)
         backButton = view.findViewById(R.id.btn_back)
 
+
         // Setup back button
         backButton.setOnClickListener {
             Log.d("MedicineReservation", "Back button clicked")
-            // Go back to the map
             parentFragmentManager.popBackStack()
         }
 
@@ -75,9 +75,97 @@ class MedicineReservationFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        medicineAdapter = ReservationMedicineAdapter(medicineList)
+        // Check if user is logged in AND is a customer
+        val isLoggedIn = LoginUtils.isUserLoggedIn(requireContext())
+        val isCustomer = LoginUtils.isCustomer(requireContext())
+        val canReserve = isLoggedIn && isCustomer
+
+        Log.d("MedicineReservation", "Setup recycler - Logged in: $isLoggedIn, Is customer: $isCustomer, Can reserve: $canReserve")
+
+        medicineAdapter = ReservationMedicineAdapter(medicineList, canReserve)
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = medicineAdapter
+    }
+
+    private fun setupReserveButton() {
+        reserveButton.setOnClickListener {
+            Log.d("MedicineReservation", "Reserve button clicked")
+
+            // Check 0: Is user a guest?
+            if (LoginUtils.isGuestUser(requireContext())) {
+                Log.d("MedicineReservation", "❌ User is GUEST, cannot reserve")
+                Toast.makeText(requireContext(),
+                    "Guests cannot make reservations. Please create an account or login.",
+                    Toast.LENGTH_LONG).show()
+                LoginUtils.redirectToLogin(requireContext())
+                return@setOnClickListener
+            }
+
+            // Check 1: Is user logged in?
+            if (!LoginUtils.isUserLoggedIn(requireContext())) {
+                Log.d("MedicineReservation", "❌ User not logged in")
+                LoginUtils.redirectToLogin(requireContext(), "Please login to make a reservation")
+                return@setOnClickListener
+            }
+
+            // Check 2: Is user a CUSTOMER? (not pharmacy)
+            if (!LoginUtils.isCustomer(requireContext())) {
+                Log.d("MedicineReservation", "❌ User is not a customer")
+                Toast.makeText(requireContext(),
+                    "Only customers can make reservations. Please login as a customer.",
+                    Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            // Check 3: Has medicines selected?
+            val selectedMedicines = medicineAdapter.getSelectedMedicines()
+            if (selectedMedicines.isEmpty()) {
+                Toast.makeText(requireContext(), "Please select at least one medicine", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            Log.d("MedicineReservation", "✅ All checks passed, creating reservation...")
+            createReservation(selectedMedicines)
+        }
+    }
+
+    private fun createReservation(selectedMedicines: List<Pair<Medicine, Int>>) {
+        // Get current user - already verified in setupReserveButton
+        val userId = LoginUtils.getCurrentUserId(requireContext())
+
+        if (userId == null) {
+            LoginUtils.redirectToLogin(requireContext(), "Session expired, please login again")
+            return
+        }
+
+        Log.d("MedicineReservation", "Creating reservation for user: $userId, pharmacy: $pharmacyId")
+
+        val reservation = hashMapOf(
+            "user_id" to userId,
+            "pharmacy_id" to pharmacyId,
+            "medicines" to selectedMedicines.map {
+                hashMapOf(
+                    "medicine_id" to it.first.id,
+                    "medicine_name" to it.first.medicine_name,
+                    "quantity" to it.second,
+                    "price" to it.first.price
+                )
+            },
+            "status" to "pending",
+            "created_at" to System.currentTimeMillis(),
+            "total_price" to selectedMedicines.sumOf { it.first.price * it.second }
+        )
+
+        db.collection("Reservations")
+            .add(reservation)
+            .addOnSuccessListener {
+                Toast.makeText(requireContext(), "Reservation created successfully!", Toast.LENGTH_SHORT).show()
+                // Close fragment
+                parentFragmentManager.popBackStack()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(requireContext(), "Failed to create reservation: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 
     private fun loadPharmacyInfo() {
@@ -117,57 +205,6 @@ class MedicineReservationFragment : Fragment() {
             }
             .addOnFailureListener { e ->
                 Toast.makeText(requireContext(), "Failed to load medicines", Toast.LENGTH_SHORT).show()
-            }
-    }
-
-    private fun setupReserveButton() {
-        reserveButton.setOnClickListener {
-            val selectedMedicines = medicineAdapter.getSelectedMedicines()
-
-            if (selectedMedicines.isEmpty()) {
-                Toast.makeText(requireContext(), "Please select at least one medicine", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-
-            createReservation(selectedMedicines)
-        }
-    }
-
-    private fun createReservation(selectedMedicines: List<Pair<Medicine, Int>>) {
-        // Get current user
-        val sharedPref = requireContext().getSharedPreferences("user_session", android.content.Context.MODE_PRIVATE)
-        val userId = sharedPref.getString("user_id", null)
-
-        if (userId == null) {
-            Toast.makeText(requireContext(), "Please login first", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        val reservation = hashMapOf(
-            "user_id" to userId,
-            "pharmacy_id" to pharmacyId,
-            "medicines" to selectedMedicines.map {
-                hashMapOf(
-                    "medicine_id" to it.first.id,
-                    "medicine_name" to it.first.medicine_name,
-                    "quantity" to it.second,
-                    "price" to it.first.price
-                )
-            },
-            "status" to "pending",
-            "created_at" to System.currentTimeMillis(),
-            "total_price" to selectedMedicines.sumOf { it.first.price * it.second }
-        )
-
-        db.collection("Reservations")
-            .add(reservation)
-            .addOnSuccessListener {
-                Toast.makeText(requireContext(), "Reservation created successfully!", Toast.LENGTH_SHORT).show()
-                // Close fragment
-                parentFragmentManager.popBackStack()
-            }
-            .addOnFailureListener { e ->
-                Toast.makeText(requireContext(), "Failed to create reservation", Toast.LENGTH_SHORT).show()
             }
     }
 }

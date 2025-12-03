@@ -15,4 +15,16 @@
         android:visibility="gone"
         android:background="@android:color/white" />
 
+    <!-- My Location Button - Simple version -->
+    <ImageButton
+        android:id="@+id/btn_my_location"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:layout_gravity="end|bottom"
+        android:layout_margin="16dp"
+        android:background="@android:drawable/btn_default"
+        android:src="@android:drawable/ic_menu_mylocation"
+        android:contentDescription="My Location"
+        android:elevation="4dp" />
+
 </FrameLayout>
