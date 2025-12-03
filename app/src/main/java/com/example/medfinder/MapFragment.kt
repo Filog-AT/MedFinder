@@ -8,6 +8,9 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RectF
+import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.location.Location
@@ -37,8 +40,11 @@ import org.osmdroid.tileprovider.tilesource.XYTileSource
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.infowindow.InfoWindow
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
+import java.text.DecimalFormat
+
 class MapFragment : Fragment() {
 
     private var mapView: MapView? = null
@@ -52,26 +58,43 @@ class MapFragment : Fragment() {
     private var locationMarker: Marker? = null
     private var myLocationOverlay: MyLocationNewOverlay? = null
 
-    // Permission request launcher
+    private val pharmacyDataList = mutableListOf<PharmacyData>()
+    private var hasLocationPermission = false
+    private var isLocationSetUp = false
+    private var isMapInitialized = false
+
+    data class PharmacyData(
+        val id: String,
+        val name: String,
+        val location: com.google.firebase.firestore.GeoPoint,
+        var distance: Double = 0.0,
+        var hasMedicine: Boolean = false,
+        var medicineName: String = "",
+        var marker: Marker? = null
+    )
+
+    companion object {
+        private const val TAG = "MapFragment"
+    }
+
     private val locationPermissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         when {
             permissions.getOrDefault(Manifest.permission.ACCESS_FINE_LOCATION, false) -> {
-                // Precise location access granted
-                Log.d("MapFragment", "Fine location permission granted")
+                Log.d(TAG, "Fine location permission granted")
+                hasLocationPermission = true
                 setupLocation()
             }
             permissions.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false) -> {
-                // Only approximate location access granted
-                Log.d("MapFragment", "Coarse location permission granted")
+                Log.d(TAG, "Coarse location permission granted")
+                hasLocationPermission = true
                 setupLocation()
             }
             else -> {
-                // No location access granted
-                Log.d("MapFragment", "Location permission denied")
-                Toast.makeText(requireContext(), "Location permission is required to show your location", Toast.LENGTH_LONG).show()
-                // Show all pharmacies anyway
+                Log.d(TAG, "Location permission denied")
+                hasLocationPermission = false
+                Toast.makeText(requireContext(), "Location permission is required to show distances", Toast.LENGTH_LONG).show()
                 showAllPharmacies()
             }
         }
@@ -81,14 +104,13 @@ class MapFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        Log.d(TAG, "onCreateView")
         val view = inflater.inflate(R.layout.fragment_map, container, false)
 
         Configuration.getInstance().load(requireContext(),
             requireContext().getSharedPreferences("osm_prefs", 0))
 
         mapView = view.findViewById(R.id.mapView)
-
-        // Initialize FusedLocationProviderClient
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireActivity())
 
         return view
@@ -96,51 +118,65 @@ class MapFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        Log.d(TAG, "onViewCreated")
         isFragmentActive = true
 
         sharedViewModel = ViewModelProvider(requireActivity())[SharedViewModel::class.java]
 
-        setupMap()
-        checkLocationPermission()
+        if (!isMapInitialized) {
+            setupMap()
+            checkLocationPermission()
+        }
 
         view.postDelayed({
-            val searchQuery = sharedViewModel.searchQuery
-            Log.d("MapFragment", "🔍 ViewModel search query: '$searchQuery'")
+            loadPharmaciesBasedOnSearch()
+        }, 500)
 
-            if (!searchQuery.isNullOrEmpty()) {
-                Log.d("MapFragment", "🚀 Starting MEDICINE SEARCH for: $searchQuery")
-                searchPharmaciesWithMedicine(searchQuery)
-            } else {
-                Log.d("MapFragment", "📍 Showing ALL PHARMACIES (no search)")
-                showAllPharmacies()
+        view.findViewById<View>(R.id.btn_my_location)?.setOnClickListener {
+            currentLocation?.let { location ->
+                centerMapToLocation(location)
+                Toast.makeText(requireContext(), "Centered on your location", Toast.LENGTH_SHORT).show()
+            } ?: run {
+                Toast.makeText(requireContext(), "Location not available", Toast.LENGTH_SHORT).show()
+                checkLocationPermission()
             }
-        }, 1000)
+        }
+    }
 
+    private fun loadPharmaciesBasedOnSearch() {
+        if (!isFragmentActive) return
+
+        val searchQuery = sharedViewModel.searchQuery
+        Log.d(TAG, "🔍 ViewModel search query: '$searchQuery'")
+
+        if (!searchQuery.isNullOrEmpty()) {
+            Log.d(TAG, "🚀 Starting MEDICINE SEARCH for: $searchQuery")
+            searchPharmaciesWithMedicine(searchQuery)
+        } else {
+            Log.d(TAG, "📍 Showing ALL PHARMACIES (no search)")
+            showAllPharmacies()
+        }
     }
 
     private fun checkLocationPermission() {
         when {
-            // Check if permissions are already granted
             ContextCompat.checkSelfPermission(
                 requireContext(),
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) == PackageManager.PERMISSION_GRANTED -> {
-                Log.d("MapFragment", "Location permission already granted")
+                Log.d(TAG, "Location permission already granted")
+                hasLocationPermission = true
                 setupLocation()
             }
 
-            // Should we show explanation?
             ActivityCompat.shouldShowRequestPermissionRationale(
                 requireActivity(),
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) -> {
-                // Show explanation dialog
                 showLocationPermissionExplanation()
             }
 
             else -> {
-                // Request permission
-                Log.d("MapFragment", "Requesting location permission")
                 locationPermissionRequest.launch(arrayOf(
                     Manifest.permission.ACCESS_FINE_LOCATION,
                     Manifest.permission.ACCESS_COARSE_LOCATION
@@ -170,27 +206,27 @@ class MapFragment : Fragment() {
 
     @SuppressLint("MissingPermission")
     private fun setupLocation() {
-        Log.d("MapFragment", "Setting up location services")
+        if (isLocationSetUp) return
 
-        // Create location request
+        Log.d(TAG, "Setting up location services")
+        isLocationSetUp = true
+
         val locationRequest = LocationRequest.create().apply {
-            interval = 10000 // 10 seconds
-            fastestInterval = 5000 // 5 seconds
+            interval = 10000
+            fastestInterval = 5000
             priority = LocationRequest.PRIORITY_HIGH_ACCURACY
         }
 
-        // Create location callback
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
                 locationResult.lastLocation?.let { location ->
                     currentLocation = location
-                    Log.d("MapFragment", "📍 Location updated: ${location.latitude}, ${location.longitude}")
+                    Log.d(TAG, "📍 Location updated: ${location.latitude}, ${location.longitude}")
 
-                    // Update or add user location marker
                     updateUserLocationMarker(location)
+                    updateAllMarkerDistancesAndIcons() // Update ALL markers
 
-                    // Center map on user location (only first time)
                     if (locationMarker == null) {
                         centerMapToLocation(location)
                     }
@@ -198,133 +234,92 @@ class MapFragment : Fragment() {
             }
         }
 
-        // Start location updates
         fusedLocationClient.requestLocationUpdates(
             locationRequest,
             locationCallback,
             Looper.getMainLooper()
         )
 
-        // Also get last known location
         fusedLocationClient.lastLocation.addOnSuccessListener { location ->
             location?.let {
                 currentLocation = it
-                Log.d("MapFragment", "📌 Last known location: ${it.latitude}, ${it.longitude}")
+                Log.d(TAG, "📌 Last known location: ${it.latitude}, ${it.longitude}")
                 updateUserLocationMarker(it)
+                updateAllMarkerDistancesAndIcons() // Update ALL markers
                 centerMapToLocation(it)
             } ?: run {
-                Log.d("MapFragment", "No last known location")
+                Log.d(TAG, "No last known location")
                 centerMapToDefaultLocation()
             }
         }
     }
 
-    // Add this to your MapFragment class
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    private fun updateAllMarkerDistancesAndIcons() {
+        currentLocation?.let { userLocation ->
+            Log.d(TAG, "📏 Updating distances and icons for ${pharmacyDataList.size} pharmacies")
 
-        // Handle back press in child fragments
-        childFragmentManager.addOnBackStackChangedListener {
-            Log.d("MapFragment", "📊 Back stack changed, entries: ${childFragmentManager.backStackEntryCount}")
+            pharmacyDataList.forEach { pharmacyData ->
+                // Calculate distance
+                val distance = calculateDistance(
+                    userLocation.latitude,
+                    userLocation.longitude,
+                    pharmacyData.location.latitude,
+                    pharmacyData.location.longitude
+                )
+                pharmacyData.distance = distance
 
-            if (childFragmentManager.backStackEntryCount == 0) {
-                // No more fragments in back stack, hide the container
-                view?.findViewById<ViewGroup>(R.id.fragment_container)?.visibility = View.GONE
-                Log.d("MapFragment", "📦 Container hidden")
+                // Update marker with new icon that includes distance
+                updateMarkerWithDistanceIcon(pharmacyData)
             }
+
+            mapView?.invalidate()
         }
     }
 
-    private fun updateUserLocationMarker(location: Location) {
-        val currentMapView = mapView
-        if (currentMapView == null) {
-            Log.e("MapFragment", "MapView is null when updating location marker")
-            return
-        }
+    private fun calculateDistance(
+        lat1: Double,
+        lon1: Double,
+        lat2: Double,
+        lon2: Double
+    ): Double {
+        val earthRadius = 6371.0
 
-        // Remove old marker if exists
-        locationMarker?.let {
-            currentMapView.overlays.remove(it)
-        }
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
 
-        // Create new marker for user location
-        val marker = Marker(currentMapView)
-        marker.position = GeoPoint(location.latitude, location.longitude)
-        marker.title = "Your Location"
-        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
 
-        // Create blue circle for user location
-        val userLocationIcon = createColoredCircleMarker(Color.BLUE, true)
-        marker.setIcon(userLocationIcon)
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
-        currentMapView.overlays.add(marker)
-        locationMarker = marker
-        currentMapView.invalidate()
-
-        Log.d("MapFragment", "✅ User location marker added")
-    }
-
-    private fun createColoredCircleMarker(color: Int, isUserLocation: Boolean = false): Drawable {
-        val size = if (isUserLocation) 30 else 40
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-
-        val paint = Paint().apply {
-            this.color = color
-            isAntiAlias = true
-            style = Paint.Style.FILL
-        }
-
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2, paint)
-
-        val borderPaint = Paint().apply {
-            this.color = if (isUserLocation) Color.WHITE else Color.BLACK
-            isAntiAlias = true
-            style = Paint.Style.STROKE
-            strokeWidth = if (isUserLocation) 3f else 2f
-        }
-        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2, borderPaint)
-
-        return BitmapDrawable(resources, bitmap)
+        return earthRadius * c
     }
 
     private fun centerMapToLocation(location: Location) {
-        val currentMapView = mapView
-        if (currentMapView == null) {
-            Log.e("MapFragment", "MapView is null when centering to location")
-            return
-        }
+        val currentMapView = mapView ?: return
 
         val userLocation = GeoPoint(location.latitude, location.longitude)
         currentMapView.controller.animateTo(userLocation)
         currentMapView.controller.setZoom(18.0)
 
-        Log.d("MapFragment", "🗺️ Map centered to user location: ${location.latitude}, ${location.longitude}")
-        Toast.makeText(requireContext(), "Showing your location", Toast.LENGTH_SHORT).show()
+        Log.d(TAG, "🗺️ Map centered to user location")
     }
 
     private fun centerMapToDefaultLocation() {
-        val currentMapView = mapView
-        if (currentMapView == null) {
-            Log.e("MapFragment", "MapView is null when centering to default")
-            return
-        }
+        val currentMapView = mapView ?: return
 
-        // Default location (you can change this)
-        val defaultLocation = GeoPoint(16.41197, 120.59341) // Baguio City
+        val defaultLocation = GeoPoint(16.41197, 120.59341)
         currentMapView.controller.animateTo(defaultLocation)
         currentMapView.controller.setZoom(18.0)
 
-        Log.d("MapFragment", "🗺️ Map centered to default location")
-        Toast.makeText(requireContext(), "Showing default location", Toast.LENGTH_SHORT).show()
+        Log.d(TAG, "🗺️ Map centered to default location")
     }
 
     private fun setupMap() {
-        val currentMapView = mapView
-        if (currentMapView == null) {
-            Log.e("MapFragment", "MapView is null during setup")
-            return
-        }
+        val currentMapView = mapView ?: return
+
+        Log.d(TAG, "🗺 Setting up map...")
 
         currentMapView.setTileSource(XYTileSource(
             "CartoDB Voyager",
@@ -336,54 +331,20 @@ class MapFragment : Fragment() {
         currentMapView.setMultiTouchControls(true)
         currentMapView.setBuiltInZoomControls(true)
 
-        // Add my location button (OSMDroid built-in)
-        currentMapView.overlays.add(MyLocationNewOverlay(GpsMyLocationProvider(requireContext()), currentMapView).apply {
-            setDrawAccuracyEnabled(true)
-            enableMyLocation()
-            myLocationOverlay = this
-        })
-
-        // Set initial zoom and center (will be overridden by location)
         val startPoint = GeoPoint(16.41197, 120.59341)
-        val mapController = currentMapView.controller
-        mapController.setZoom(15.0) // Start with wider view
-        mapController.setCenter(startPoint)
+        currentMapView.controller.setCenter(startPoint)
+        currentMapView.controller.setZoom(15.0)
 
-        // Add marker click listener
-        currentMapView.overlays.add(object : org.osmdroid.views.overlay.Overlay() {
-            override fun onSingleTapConfirmed(e: MotionEvent?, mapView: MapView?): Boolean {
-                if (e != null && mapView != null) {
-                    val projection = mapView.projection
-                    val geoPoint = projection.fromPixels(e.x.toInt(), e.y.toInt())
-
-                    // Check if a marker was clicked
-                    for (overlay in mapView.overlays.reversed()) {
-                        if (overlay is Marker) {
-                            val markerPoint = overlay.position
-                            val distance = markerPoint.distanceToAsDouble(geoPoint)
-
-                            // If click is near the marker
-                            if (distance < 0.0001) {
-                                val pharmacyId = overlay.relatedObject as? String
-                                if (pharmacyId != null) {
-                                    openReservationFragment(pharmacyId)
-                                    return true
-                                }
-                            }
-                        }
-                    }
-                }
-                return false
-            }
-        })
+        isMapInitialized = true
+        Log.d(TAG, "✅ Map setup complete")
     }
 
     private fun searchPharmaciesWithMedicine(medicineName: String) {
         if (!isFragmentActive) return
 
-        Log.d("MapFragment", "🔍 SEARCHING for medicine: $medicineName")
+        Log.d(TAG, "🔍 SEARCHING for medicine: $medicineName")
 
-        mapView?.overlays?.clear()
+        clearMap()
         showToast("Searching for $medicineName...")
 
         db.collection("Pharmacies")
@@ -392,56 +353,74 @@ class MapFragment : Fragment() {
                 if (!isFragmentActive) return@addOnSuccessListener
 
                 val totalPharmacies = pharmacyResult.size()
-                Log.d("MapFragment", "Found $totalPharmacies pharmacies")
+                Log.d(TAG, "Found $totalPharmacies pharmacies")
 
                 if (totalPharmacies == 0) {
                     showToast("No pharmacies found")
                     return@addOnSuccessListener
                 }
 
-                var completedQueries = 0
+                var processedCount = 0
 
                 pharmacyResult.documents.forEach { pharmacyDoc ->
                     val pharmacyId = pharmacyDoc.id
                     val pharmacyName = pharmacyDoc.getString("pharmacy_name") ?: "Unknown Pharmacy"
                     val location = pharmacyDoc.getGeoPoint("Location")
 
-                    Log.d("MapFragment", "Checking pharmacy: $pharmacyName")
-
                     if (location != null) {
-                        checkMedicineStock(pharmacyId, pharmacyName, location, medicineName) { hasMedicine ->
-                            completedQueries++
-                            Log.d("MapFragment", "Completed $completedQueries/$totalPharmacies - $pharmacyName has $medicineName: $hasMedicine")
+                        val pharmacyData = PharmacyData(
+                            id = pharmacyId,
+                            name = pharmacyName,
+                            location = location,
+                            medicineName = medicineName
+                        )
 
-                            // Pass pharmacyId to addPharmacyMarker
-                            addPharmacyMarker(pharmacyName, location, hasMedicine, medicineName, pharmacyId)
+                        checkMedicineStock(pharmacyId, medicineName) { hasMedicine ->
+                            if (!isFragmentActive) return@checkMedicineStock
 
-                            if (completedQueries == totalPharmacies) {
+                            pharmacyData.hasMedicine = hasMedicine
+
+                            // Calculate initial distance
+                            currentLocation?.let { userLocation ->
+                                val distance = calculateDistance(
+                                    userLocation.latitude,
+                                    userLocation.longitude,
+                                    location.latitude,
+                                    location.longitude
+                                )
+                                pharmacyData.distance = distance
+                            }
+
+                            // Create marker with distance icon
+                            val marker = createMarkerWithDistance(pharmacyData)
+                            pharmacyData.marker = marker
+                            pharmacyDataList.add(pharmacyData)
+
+                            processedCount++
+                            Log.d(TAG, "✅ Processed $processedCount/$totalPharmacies: $pharmacyName")
+
+                            if (processedCount == totalPharmacies) {
                                 showSearchResultsSummary(medicineName, totalPharmacies)
+                                Log.d(TAG, "✅ All pharmacies loaded and markers created")
                             }
                         }
                     } else {
-                        completedQueries++
-                        Log.d("MapFragment", "Skipping pharmacy (no location): $pharmacyName")
+                        processedCount++
                     }
                 }
             }
             .addOnFailureListener { e ->
                 if (!isFragmentActive) return@addOnFailureListener
-                Log.e("MapFragment", "Error loading pharmacies", e)
+                Log.e(TAG, "Error loading pharmacies", e)
                 showToast("Error loading pharmacies")
             }
     }
 
     private fun checkMedicineStock(
         pharmacyId: String,
-        pharmacyName: String,
-        location: com.google.firebase.firestore.GeoPoint,
         medicineName: String,
         onComplete: (Boolean) -> Unit
     ) {
-        Log.d("MapFragment", "Checking stock for $pharmacyName - Medicine: $medicineName")
-
         db.collection("Pharmacies")
             .document(pharmacyId)
             .collection("Medicines")
@@ -454,76 +433,342 @@ class MapFragment : Fragment() {
                     val stock = document.getLong("stock") ?: 0
                     stock > 0
                 }
-
-                Log.d("MapFragment", "🎯 RESULT: $pharmacyName - $medicineName available: $hasMedicine (Found ${inventoryResult.size()} items)")
-
-                // addPharmacyMarker is now called from the callback above with pharmacyId
                 onComplete(hasMedicine)
             }
             .addOnFailureListener { e ->
                 if (!isFragmentActive) return@addOnFailureListener
-                Log.e("MapFragment", "Error checking inventory for $pharmacyName", e)
-                // addPharmacyMarker is now called from the callback above with pharmacyId
+                Log.e(TAG, "Error checking inventory", e)
                 onComplete(false)
             }
     }
 
-    private fun addPharmacyMarker(
-        name: String,
-        location: com.google.firebase.firestore.GeoPoint,
-        hasMedicine: Boolean,
-        medicineName: String,
-        pharmacyId: String
-    ) {
+    // NEW: Create marker with distance text drawn on the icon
+    private fun createMarkerWithDistance(pharmacyData: PharmacyData): Marker? {
+        val currentMapView = mapView ?: return null
+
         try {
-            val currentMapView = mapView
-            if (currentMapView == null) {
-                Log.e("MapFragment", "MapView is null when adding marker for $name")
-                return
-            }
-
             val marker = Marker(currentMapView)
-            marker.position = GeoPoint(location.latitude, location.longitude)
+            marker.position = GeoPoint(
+                pharmacyData.location.latitude,
+                pharmacyData.location.longitude
+            )
+            marker.setRelatedObject(pharmacyData.id)
+            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
 
-            // Store pharmacy ID in the marker
-            marker.setRelatedObject(pharmacyId)
+            // Choose which design to use:
+            // Option 1: Text below circle (clean and readable)
+            // val markerIcon = createSimpleMarkerWithDistance(pharmacyData)
 
-            val markerColor = if (hasMedicine) Color.GREEN else Color.RED
-            val markerDrawable = createColoredCircleMarker(markerColor)
+            // Option 2: Badge design (compact and stylish)
+            val markerIcon = createBadgeMarkerWithDistance(pharmacyData)
 
-            if (hasMedicine) {
-                marker.title = "✅ $name - HAS $medicineName"
-                Log.d("MapFragment", "🟢 GREEN marker for $name")
-            } else {
-                marker.title = "❌ $name - NO $medicineName"
-                Log.d("MapFragment", "🔴 RED marker for $name")
-            }
+            marker.setIcon(markerIcon)
 
-            marker.setIcon(markerDrawable)
-            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-            marker.setPanToView(false)
+            updateMarkerTitle(marker, pharmacyData)
 
-            // Add click listener to marker
-            marker.setOnMarkerClickListener { marker, mapView ->
-                Log.d("MapFragment", "🎯 Marker clicked: ${marker.title}")
-                val clickedPharmacyId = marker.relatedObject as? String
-                if (clickedPharmacyId != null) {
-                    openReservationFragment(clickedPharmacyId)
-                }
+            marker.setOnMarkerClickListener { clickedMarker, mapView ->
+                clickedMarker.showInfoWindow()
+                openReservationFragment(pharmacyData.id)
                 true
             }
 
             currentMapView.overlays.add(marker)
-            currentMapView.invalidate()
-
+            return marker
         } catch (e: Exception) {
-            Log.e("MapFragment", "Error adding marker for $name: ${e.message}")
+            Log.e(TAG, "Error creating marker for ${pharmacyData.name}: ${e.message}")
+            return null
         }
     }
 
+    private fun createFixedSizeMarker(pharmacyData: PharmacyData): Drawable {
+        // Always use the same size regardless of zoom
+        val fixedWidth = 120
+        val fixedHeight = 160
 
-    private fun createColoredCircleMarker(color: Int): Drawable {
-        val size = 40
+        val bitmap = Bitmap.createBitmap(fixedWidth, fixedHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        // Your existing drawing code here, but with fixed sizes
+
+        return BitmapDrawable(resources, bitmap)
+    }
+
+    // NEW: Create marker icon with distance text drawn on it
+    private fun createBadgeMarkerWithDistance(pharmacyData: PharmacyData): Drawable {
+        val circleDiameter = 120  // Increased circle size
+        val badgeHeight = 70      // Increased badge height
+        val padding = 10          // Increased padding
+        val totalHeight = circleDiameter + badgeHeight + padding
+
+        // Make the bitmap wider to accommodate larger badge
+        val bitmapWidth = circleDiameter + 40  // Increased from +20 to +40
+        val bitmap = Bitmap.createBitmap(bitmapWidth, totalHeight, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+
+        canvas.drawColor(Color.TRANSPARENT)
+
+        // Draw main circle
+        val circleColor = when {
+            pharmacyData.medicineName.isNotEmpty() -> {
+                if (pharmacyData.hasMedicine) Color.parseColor("#4CAF50") // Bright green
+                else Color.parseColor("#F44336") // Bright red
+            }
+            else -> Color.parseColor("#2196F3") // Bright blue
+        }
+
+        val circlePaint = Paint().apply {
+            color = circleColor
+            isAntiAlias = true
+            style = Paint.Style.FILL
+        }
+
+        val borderPaint = Paint().apply {
+            color = Color.WHITE
+            isAntiAlias = true
+            style = Paint.Style.STROKE
+            strokeWidth = 5f  // Slightly thicker border
+        }
+
+        val centerX = bitmapWidth / 2f
+        val circleCenterY = circleDiameter / 2f
+        val circleRadius = circleDiameter / 2f - 10  // Adjusted for larger circle
+
+        canvas.drawCircle(centerX, circleCenterY, circleRadius, circlePaint)
+        canvas.drawCircle(centerX, circleCenterY, circleRadius, borderPaint)
+
+        // Draw distance badge - MAKE IT WIDER
+        val badgePaint = Paint().apply {
+            color = Color.parseColor("#222222") // Darker gray for better contrast
+            isAntiAlias = true
+            style = Paint.Style.FILL
+        }
+
+        // Make badge wider than the circle
+        val badgeWidth = circleRadius * 2 + 30  // 30 pixels wider than circle diameter
+        val badgeRect = RectF(
+            centerX - (badgeWidth / 2),  // Start further left
+            circleCenterY + circleRadius - 10,  // Position it slightly overlapping the circle
+            centerX + (badgeWidth / 2),  // End further right
+            circleCenterY + circleRadius + badgeHeight  // Keep same height
+        )
+
+        val cornerRadius = 15f  // Slightly larger corners
+        canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, badgePaint)
+
+        // Add border to the badge
+        val badgeBorderPaint = Paint().apply {
+            color = Color.WHITE
+            isAntiAlias = true
+            style = Paint.Style.STROKE
+            strokeWidth = 2f
+        }
+        canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, badgeBorderPaint)
+
+        // Draw distance text on badge
+        val decimalFormat = DecimalFormat("#.#")
+        val distanceText = if (pharmacyData.distance > 0) {
+            "${decimalFormat.format(pharmacyData.distance)} km"
+        } else {
+            "?? km"
+        }
+
+        // Adjust text size for larger badge
+        val textPaint = Paint().apply {
+            color = Color.WHITE
+            textSize = 40f  // Increased from 38f
+            typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+            setShadowLayer(4f, 2f, 2f, Color.BLACK)  // Stronger shadow
+        }
+
+        // Calculate text position
+        val textBounds = Rect()
+        textPaint.getTextBounds(distanceText, 0, distanceText.length, textBounds)
+        val textY = badgeRect.centerY() + (textBounds.height() / 2f) - 5
+
+        // Optional: Draw background for text (makes it more readable)
+        val textBgPadding = 10f
+        val textBgRect = RectF(
+            badgeRect.left + textBgPadding,
+            textY - textBounds.height() - textBgPadding,
+            badgeRect.right - textBgPadding,
+            textY + textBgPadding
+        )
+        val textBgPaint = Paint().apply {
+            color = Color.parseColor("#444444")
+            isAntiAlias = true
+            style = Paint.Style.FILL
+            alpha = 180
+        }
+        canvas.drawRoundRect(textBgRect, 8f, 8f, textBgPaint)
+
+        // Draw the distance text
+        canvas.drawText(distanceText, centerX, textY, textPaint)
+
+        // Draw pharmacy initial or medicine indicator inside circle
+        val circleTextPaint = Paint().apply {
+            color = Color.WHITE
+            textSize = 36f  // Larger text inside circle
+            typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
+            isAntiAlias = true
+            textAlign = Paint.Align.CENTER
+            setShadowLayer(3f, 1f, 1f, Color.BLACK)
+        }
+
+        if (pharmacyData.medicineName.isNotEmpty()) {
+            // Draw medicine indicator
+            val medText = if (pharmacyData.hasMedicine) "✓" else "✗"
+            val medBounds = Rect()
+            circleTextPaint.getTextBounds(medText, 0, medText.length, medBounds)
+            val medY = circleCenterY + (medBounds.height() / 2f) - 8
+
+            canvas.drawText(medText, centerX, medY, circleTextPaint)
+        } else {
+            // Draw initial of pharmacy name
+            val initial = if (pharmacyData.name.isNotEmpty()) {
+                pharmacyData.name[0].uppercaseChar().toString()
+            } else {
+                "P"
+            }
+
+            val initialBounds = Rect()
+            circleTextPaint.getTextBounds(initial, 0, initial.length, initialBounds)
+            val initialY = circleCenterY + (initialBounds.height() / 2f) - 8
+
+            canvas.drawText(initial, centerX, initialY, circleTextPaint)
+        }
+
+        val drawable = BitmapDrawable(resources, bitmap)
+        drawable.setBounds(0, 0, bitmapWidth, totalHeight)
+
+        return drawable
+    }
+
+    // NEW: Update existing marker icon with new distance
+    private fun updateMarkerWithDistanceIcon(pharmacyData: PharmacyData) {
+        pharmacyData.marker?.let { marker ->
+            val newIcon = createBadgeMarkerWithDistance(pharmacyData)
+            marker.setIcon(newIcon)
+            updateMarkerTitle(marker, pharmacyData)
+        }
+    }
+
+    private fun updateMarkerTitle(marker: Marker, pharmacyData: PharmacyData) {
+        val decimalFormat = DecimalFormat("#.#")
+        val distanceStr = if (pharmacyData.distance > 0) {
+            "${decimalFormat.format(pharmacyData.distance)} km"
+        } else {
+            "?? km"
+        }
+
+        if (pharmacyData.medicineName.isNotEmpty()) {
+            val status = if (pharmacyData.hasMedicine) "✅ HAS" else "❌ NO"
+            marker.title = "${pharmacyData.name}\n$status ${pharmacyData.medicineName}\n📏 $distanceStr"
+        } else {
+            marker.title = "${pharmacyData.name}\n📏 $distanceStr"
+        }
+
+        marker.snippet = "Tap for reservation"
+    }
+
+    private fun clearMap() {
+        mapView?.overlays?.clear()
+        pharmacyDataList.clear()
+        locationMarker = null
+    }
+
+    private fun showAllPharmacies() {
+        if (!isFragmentActive) return
+
+        Log.d(TAG, "🔄 Loading ALL pharmacies...")
+
+        clearMap()
+
+        db.collection("Pharmacies")
+            .get()
+            .addOnSuccessListener { result ->
+                if (!isFragmentActive) return@addOnSuccessListener
+
+                val totalPharmacies = result.size()
+                Log.d(TAG, "📊 Found $totalPharmacies pharmacies")
+
+                var processedCount = 0
+
+                result.documents.forEach { document ->
+                    val location = document.getGeoPoint("Location")
+                    val name = document.getString("pharmacy_name") ?: "Unknown Pharmacy"
+                    val pharmacyId = document.id
+
+                    if (location != null) {
+                        val pharmacyData = PharmacyData(
+                            id = pharmacyId,
+                            name = name,
+                            location = location
+                        )
+
+                        // Calculate initial distance
+                        currentLocation?.let { userLocation ->
+                            val distance = calculateDistance(
+                                userLocation.latitude,
+                                userLocation.longitude,
+                                location.latitude,
+                                location.longitude
+                            )
+                            pharmacyData.distance = distance
+                        }
+
+                        // Create marker with distance
+                        val marker = createMarkerWithDistance(pharmacyData)
+                        pharmacyData.marker = marker
+                        pharmacyDataList.add(pharmacyData)
+
+                        processedCount++
+
+                        if (processedCount == totalPharmacies) {
+                            Log.d(TAG, "✅ All $totalPharmacies pharmacies added")
+                            showToast("Showing ${result.size()} pharmacies")
+                        }
+                    } else {
+                        processedCount++
+                    }
+                }
+
+                if (result.isEmpty()) {
+                    showToast("No pharmacies found")
+                }
+            }
+            .addOnFailureListener { e ->
+                if (!isFragmentActive) return@addOnFailureListener
+                Log.e(TAG, "Error loading pharmacies", e)
+                showToast("Error loading pharmacies")
+            }
+    }
+
+    private fun updateUserLocationMarker(location: Location) {
+        val currentMapView = mapView ?: return
+
+        locationMarker?.let {
+            currentMapView.overlays.remove(it)
+        }
+
+        val marker = Marker(currentMapView)
+        marker.position = GeoPoint(location.latitude, location.longitude)
+        marker.title = "Your Location"
+        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+
+        // Create user location icon (simpler, no text needed)
+        val userLocationIcon = createSimpleCircleMarker(Color.BLUE, true)
+        marker.setIcon(userLocationIcon)
+
+        currentMapView.overlays.add(marker)
+        locationMarker = marker
+
+        Log.d(TAG, "✅ User location marker added")
+    }
+
+    private fun createSimpleCircleMarker(color: Int, isUserLocation: Boolean = false): Drawable {
+        val size = if (isUserLocation) 45 else 40
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
@@ -543,134 +788,52 @@ class MapFragment : Fragment() {
         }
         canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2, borderPaint)
 
-        return BitmapDrawable(resources, bitmap)
-    }
+        val drawable = BitmapDrawable(resources, bitmap)
+        drawable.setBounds(0, 0, size, size)
 
-    private fun showAllPharmacies() {
-        if (!isFragmentActive) return
-
-        db.collection("Pharmacies")
-            .get()
-            .addOnSuccessListener { result ->
-                if (!isFragmentActive) return@addOnSuccessListener
-
-                mapView?.overlays?.clear()
-                result.documents.forEach { document ->
-                    val location = document.getGeoPoint("Location")
-                    val name = document.getString("pharmacy_name") ?: "Unknown Pharmacy"
-                    val pharmacyId = document.id  // Get the pharmacy ID
-
-                    if (location != null) {
-                        addSimpleMarker(name, location, pharmacyId)
-                    }
-                }
-                mapView?.invalidate()
-                showToast("Showing ${result.size()} pharmacies")
-            }
-            .addOnFailureListener { e ->
-                if (!isFragmentActive) return@addOnFailureListener
-                Log.e("MapFragment", "Error loading pharmacies", e)
-                showToast("Error loading pharmacies")
-            }
-    }
-
-    private fun addSimpleMarker(
-        name: String,
-        location: com.google.firebase.firestore.GeoPoint,
-        pharmacyId: String
-    ) {
-        try {
-            val currentMapView = mapView
-            if (currentMapView == null) {
-                Log.e("MapFragment", "MapView is null when adding simple marker for $name")
-                return
-            }
-
-            val marker = Marker(currentMapView)
-            marker.position = GeoPoint(location.latitude, location.longitude)
-            marker.title = name
-
-            // Store pharmacy ID in the marker
-            marker.setRelatedObject(pharmacyId)
-
-            val neutralMarker = createColoredCircleMarker(Color.BLUE)
-            marker.setIcon(neutralMarker)
-            marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-            marker.setPanToView(false)
-
-            // Add click listener to marker
-            marker.setOnMarkerClickListener { marker, mapView ->
-                Log.d("MapFragment", "🎯 Marker clicked: ${marker.title}")
-                val clickedPharmacyId = marker.relatedObject as? String
-                if (clickedPharmacyId != null) {
-                    openReservationFragment(clickedPharmacyId)
-                }
-                true
-            }
-
-            currentMapView.overlays.add(marker)
-
-        } catch (e: Exception) {
-            Log.e("MapFragment", "Error adding simple marker for $name: ${e.message}")
-        }
+        return drawable
     }
 
     private fun showSearchResultsSummary(medicineName: String, totalPharmacies: Int) {
         if (!isFragmentActive) return
 
-        val availableCount = mapView?.overlays?.count { overlay ->
-            overlay is Marker && overlay.title?.contains("✅") == true
-        } ?: 0
-
+        val availableCount = pharmacyDataList.count { it.hasMedicine }
         val message = if (availableCount > 0) {
             "Found $availableCount out of $totalPharmacies pharmacies with $medicineName"
         } else {
             "No pharmacies found with $medicineName in stock"
         }
 
-        Log.d("MapFragment", "📊 $message")
+        Log.d(TAG, "📊 $message")
         showToast(message)
     }
 
     private fun openReservationFragment(pharmacyId: String) {
         try {
-            Log.d("MapFragment", "🚀 Opening reservation fragment for pharmacy: $pharmacyId")
+            Log.d(TAG, "🚀 Opening reservation fragment for pharmacy: $pharmacyId")
 
-            if (LoginUtils.isGuestUser(requireContext())) {
-                Log.d("MapFragment", "❌ User is GUEST, cannot reserve")
-                Toast.makeText(requireContext(),
-                    "Guests cannot make reservations. Please create an account or login.",
-                    Toast.LENGTH_LONG).show()
-                LoginUtils.redirectToLogin(requireContext())
-                return
-            }
-
-            // Check if user is logged in AND is a customer
             if (!LoginUtils.isUserLoggedIn(requireContext())) {
-                Log.d("MapFragment", "❌ User not logged in")
                 LoginUtils.redirectToLogin(requireContext(), "Please login to reserve medicines")
                 return
             }
 
             if (!LoginUtils.isCustomer(requireContext())) {
-                Log.d("MapFragment", "❌ User is not a customer")
                 Toast.makeText(requireContext(),
-                    "Only customers can make reservations. Please login as a customer.",
+                    "Only customers can make reservations",
                     Toast.LENGTH_LONG).show()
                 return
             }
 
-            // Create the reservation fragment
-            val reservationFragment = MedicineReservationFragment.newInstance(pharmacyId)
+            val pharmacyData = pharmacyDataList.find { it.id == pharmacyId }
+            val distance = pharmacyData?.distance ?: 0.0
 
-            // Get the container and make it visible
+            val reservationFragment = MedReserveFragment.newInstance(pharmacyId, distance)
+
             val container = view?.findViewById<ViewGroup>(R.id.fragment_container)
             if (container != null) {
                 container.visibility = View.VISIBLE
-                Log.d("MapFragment", "✅ Container made visible")
             }
 
-            // Use child fragment manager since this is already a fragment
             childFragmentManager.beginTransaction()
                 .setCustomAnimations(
                     R.anim.slide_in_up,
@@ -682,10 +845,8 @@ class MapFragment : Fragment() {
                 .addToBackStack("reservation")
                 .commit()
 
-            Log.d("MapFragment", "✅ Transaction committed")
-
         } catch (e: Exception) {
-            Log.e("MapFragment", "❌ Error opening reservation fragment: ${e.message}", e)
+            Log.e(TAG, "❌ Error opening reservation fragment: ${e.message}", e)
             Toast.makeText(requireContext(), "Error opening reservation", Toast.LENGTH_SHORT).show()
         }
     }
@@ -698,27 +859,39 @@ class MapFragment : Fragment() {
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        isFragmentActive = false
-
-        // Stop location updates to save battery
-        try {
-            fusedLocationClient.removeLocationUpdates(locationCallback)
-        } catch (e: Exception) {
-            Log.e("MapFragment", "Error removing location updates", e)
-        }
-
-        mapView = null
-    }
-
     override fun onResume() {
         super.onResume()
+        Log.d(TAG, "onResume")
         mapView?.onResume()
+
+        if (isFragmentActive) {
+            view?.postDelayed({
+                loadPharmaciesBasedOnSearch()
+            }, 300)
+        }
     }
 
     override fun onPause() {
         super.onPause()
+        Log.d(TAG, "onPause")
         mapView?.onPause()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        Log.d(TAG, "onDestroyView")
+        isFragmentActive = false
+
+        try {
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error removing location updates", e)
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Log.d(TAG, "onDestroy")
+        isMapInitialized = false
     }
 }

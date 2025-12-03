@@ -47,6 +47,16 @@
         android:paddingBottom="16dp"/>
 
     <TextView
+        android:id="@+id/tv_pharmacy_distance"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="1.5 km away"
+        android:textSize="14sp"
+        android:textColor="@android:color/darker_gray"
+        android:paddingBottom="8dp"
+        android:visibility="gone" />
+
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Select Medicines to Reserve"

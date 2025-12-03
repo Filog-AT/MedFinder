@@ -1,6 +1,7 @@
 package com.example.medfinder
 
 import Medicine
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -14,8 +15,9 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.firestore.FirebaseFirestore
+import java.text.DecimalFormat
 
-class MedicineReservationFragment : Fragment() {
+class MedReserveFragment : Fragment() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var reserveButton: Button
@@ -25,14 +27,17 @@ class MedicineReservationFragment : Fragment() {
     private val medicineList = mutableListOf<Medicine>()
     private val db = FirebaseFirestore.getInstance()
     private var pharmacyId: String = ""
+    private var distance: Double = 0.0
 
     companion object {
         private const val ARG_PHARMACY_ID = "pharmacy_id"
+        private const val ARG_DISTANCE = "distance"
 
-        fun newInstance(pharmacyId: String): MedicineReservationFragment {
-            val fragment = MedicineReservationFragment()
+        fun newInstance(pharmacyId: String, distance: Double = 0.0): MedReserveFragment {
+            val fragment = MedReserveFragment()
             val args = Bundle()
             args.putString(ARG_PHARMACY_ID, pharmacyId)
+            args.putDouble(ARG_DISTANCE, distance)
             fragment.arguments = args
             return fragment
         }
@@ -42,6 +47,7 @@ class MedicineReservationFragment : Fragment() {
         super.onCreate(savedInstanceState)
         arguments?.let {
             pharmacyId = it.getString(ARG_PHARMACY_ID) ?: ""
+            distance = it.getDouble(ARG_DISTANCE, 0.0)
         }
     }
 
@@ -52,26 +58,57 @@ class MedicineReservationFragment : Fragment() {
         return inflater.inflate(R.layout.fragment_med_reserve, container, false)
     }
 
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Initialize views
-        recyclerView = view.findViewById(R.id.reservation_recycler_view)
-        reserveButton = view.findViewById(R.id.btn_reserve)
-        pharmacyNameTextView = view.findViewById(R.id.tv_pharmacy_name)
-        backButton = view.findViewById(R.id.btn_back)
-
+        // Initialize views with explicit types
+        recyclerView = view.findViewById<RecyclerView>(R.id.reservation_recycler_view)
+        reserveButton = view.findViewById<Button>(R.id.btn_reserve)
+        pharmacyNameTextView = view.findViewById<TextView>(R.id.tv_pharmacy_name)
+        backButton = view.findViewById<ImageButton>(R.id.btn_back)
 
         // Setup back button
         backButton.setOnClickListener {
-            Log.d("MedicineReservation", "Back button clicked")
             parentFragmentManager.popBackStack()
+        }
+
+        // SIMPLER APPROACH: Just call the function directly
+        // If it doesn't exist, we'll handle the error
+        try {
+            LoginUtils.clearConflictingSession(requireContext())
+        } catch (e: NoSuchMethodError) {
+            Log.d("MedicineReservation", "clearConflictingSession not available: ${e.message}")
+        } catch (e: Exception) {
+            Log.d("MedicineReservation", "Error calling clearConflictingSession: ${e.message}")
         }
 
         setupRecyclerView()
         loadPharmacyInfo()
         loadMedicines()
         setupReserveButton()
+    }
+
+    fun clearConflictingSession(context: Context) {
+        val sharedPref = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
+
+        // Check what type of user we have
+        val hasCustomerData = sharedPref.contains("USER_ID")
+        val hasPharmacyData = sharedPref.contains("user_id")
+
+        if (hasCustomerData && hasPharmacyData) {
+            Log.d("LoginUtils", "⚠️ Found conflicting session data!")
+
+            with(sharedPref.edit()) {
+                remove("role")
+                remove("user_id")
+                remove("pharmacy_id")
+                remove("email")
+                remove("username")
+                apply()
+            }
+            Log.d("LoginUtils", "Cleared conflicting pharmacy data")
+        }
     }
 
     private fun setupRecyclerView() {
@@ -86,6 +123,7 @@ class MedicineReservationFragment : Fragment() {
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = medicineAdapter
     }
+
 
     private fun setupReserveButton() {
         reserveButton.setOnClickListener {
@@ -175,7 +213,16 @@ class MedicineReservationFragment : Fragment() {
             .get()
             .addOnSuccessListener { document ->
                 val pharmacyName = document.getString("pharmacy_name") ?: "Pharmacy"
-                pharmacyNameTextView.text = pharmacyName
+
+                // Show distance with pharmacy name
+                if (distance > 0) {
+                    val decimalFormat = DecimalFormat("#.##")
+                    val distanceText = " (${decimalFormat.format(distance)} km away)"
+                    pharmacyNameTextView.text = "$pharmacyName$distanceText"
+                    Log.d("MedicineReservation", "Distance: $distanceText")
+                } else {
+                    pharmacyNameTextView.text = pharmacyName
+                }
             }
             .addOnFailureListener { e ->
                 Log.e("MedicineReservation", "Error loading pharmacy info", e)

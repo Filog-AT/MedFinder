@@ -12,7 +12,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="15dp">
 
         <!-- Header: Date and Total -->
         <LinearLayout
@@ -73,7 +73,7 @@
             <Button
                 android:id="@+id/btn_confirm"
                 android:layout_width="0dp"
-                android:layout_height="32dp"
+                android:layout_height="38dp"
                 android:layout_weight="1"
                 android:layout_marginEnd="4dp"
                 android:text="Confirm"
@@ -84,18 +84,19 @@
             <Button
                 android:id="@+id/btn_complete"
                 android:layout_width="0dp"
-                android:layout_height="32dp"
+                android:layout_height="38dp"
                 android:layout_weight="1"
                 android:layout_marginHorizontal="4dp"
                 android:text="Complete"
                 android:textSize="12sp"
+                android:ellipsize="end"
                 android:backgroundTint="@color/complete_blue"
-                android:textColor="@android:color/white" />
+                android:textColor="@android:color/white"/>
 
             <Button
                 android:id="@+id/btn_cancel"
                 android:layout_width="0dp"
-                android:layout_height="32dp"
+                android:layout_height="38dp"
                 android:layout_weight="1"
                 android:layout_marginStart="4dp"
                 android:text="Cancel"

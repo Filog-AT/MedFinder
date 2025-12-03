@@ -44,6 +44,29 @@ object LoginUtils {
         return userId == GUEST_USER_ID
     }
 
+    fun clearConflictingSession(context: Context) {
+        val sharedPref = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
+
+        // Check what type of user we have
+        val hasCustomerData = sharedPref.contains("USER_ID")
+        val hasPharmacyData = sharedPref.contains("user_id")
+
+        if (hasCustomerData && hasPharmacyData) {
+            Log.d("LoginUtils", "⚠️ Found conflicting session data!")
+
+            with(sharedPref.edit()) {
+                // Clear pharmacy data and keep customer data
+                remove("role")
+                remove("user_id")
+                remove("pharmacy_id")
+                remove("email")
+                remove("username")
+                apply()
+            }
+            Log.d("LoginUtils", "Cleared conflicting pharmacy data")
+        }
+    }
+
     // NEW: Set user as guest
     fun setAsGuest(context: Context) {
         val sharedPref = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
