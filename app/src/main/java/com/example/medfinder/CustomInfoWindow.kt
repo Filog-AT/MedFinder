@@ -37,6 +37,5 @@ class CustomInfoWindow(
     }
 
     override fun onClose() {
-        // Clean up if needed
     }
 }

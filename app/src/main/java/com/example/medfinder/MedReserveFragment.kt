@@ -62,19 +62,15 @@ class MedReserveFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Initialize views with explicit types
         recyclerView = view.findViewById<RecyclerView>(R.id.reservation_recycler_view)
         reserveButton = view.findViewById<Button>(R.id.btn_reserve)
         pharmacyNameTextView = view.findViewById<TextView>(R.id.tv_pharmacy_name)
         backButton = view.findViewById<ImageButton>(R.id.btn_back)
 
-        // Setup back button
         backButton.setOnClickListener {
             parentFragmentManager.popBackStack()
         }
 
-        // SIMPLER APPROACH: Just call the function directly
-        // If it doesn't exist, we'll handle the error
         try {
             LoginUtils.clearConflictingSession(requireContext())
         } catch (e: NoSuchMethodError) {
@@ -92,7 +88,6 @@ class MedReserveFragment : Fragment() {
     fun clearConflictingSession(context: Context) {
         val sharedPref = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
 
-        // Check what type of user we have
         val hasCustomerData = sharedPref.contains("USER_ID")
         val hasPharmacyData = sharedPref.contains("user_id")
 
@@ -112,7 +107,6 @@ class MedReserveFragment : Fragment() {
     }
 
     private fun setupRecyclerView() {
-        // Check if user is logged in AND is a customer
         val isLoggedIn = LoginUtils.isUserLoggedIn(requireContext())
         val isCustomer = LoginUtils.isCustomer(requireContext())
         val canReserve = isLoggedIn && isCustomer
@@ -129,7 +123,6 @@ class MedReserveFragment : Fragment() {
         reserveButton.setOnClickListener {
             Log.d("MedicineReservation", "Reserve button clicked")
 
-            // Check 0: Is user a guest?
             if (LoginUtils.isGuestUser(requireContext())) {
                 Log.d("MedicineReservation", "❌ User is GUEST, cannot reserve")
                 Toast.makeText(requireContext(),
@@ -139,14 +132,12 @@ class MedReserveFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            // Check 1: Is user logged in?
             if (!LoginUtils.isUserLoggedIn(requireContext())) {
                 Log.d("MedicineReservation", "❌ User not logged in")
                 LoginUtils.redirectToLogin(requireContext(), "Please login to make a reservation")
                 return@setOnClickListener
             }
 
-            // Check 2: Is user a CUSTOMER? (not pharmacy)
             if (!LoginUtils.isCustomer(requireContext())) {
                 Log.d("MedicineReservation", "❌ User is not a customer")
                 Toast.makeText(requireContext(),
@@ -155,7 +146,6 @@ class MedReserveFragment : Fragment() {
                 return@setOnClickListener
             }
 
-            // Check 3: Has medicines selected?
             val selectedMedicines = medicineAdapter.getSelectedMedicines()
             if (selectedMedicines.isEmpty()) {
                 Toast.makeText(requireContext(), "Please select at least one medicine", Toast.LENGTH_SHORT).show()
@@ -168,7 +158,6 @@ class MedReserveFragment : Fragment() {
     }
 
     private fun createReservation(selectedMedicines: List<Pair<Medicine, Int>>) {
-        // Get current user - already verified in setupReserveButton
         val userId = LoginUtils.getCurrentUserId(requireContext())
 
         if (userId == null) {
@@ -198,7 +187,6 @@ class MedReserveFragment : Fragment() {
             .add(reservation)
             .addOnSuccessListener {
                 Toast.makeText(requireContext(), "Reservation created successfully!", Toast.LENGTH_SHORT).show()
-                // Close fragment
                 parentFragmentManager.popBackStack()
             }
             .addOnFailureListener { e ->
@@ -214,7 +202,6 @@ class MedReserveFragment : Fragment() {
             .addOnSuccessListener { document ->
                 val pharmacyName = document.getString("pharmacy_name") ?: "Pharmacy"
 
-                // Show distance with pharmacy name
                 if (distance > 0) {
                     val decimalFormat = DecimalFormat("#.##")
                     val distanceText = " (${decimalFormat.format(distance)} km away)"

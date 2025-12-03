@@ -6,10 +6,7 @@ import android.util.Log
 import android.widget.Toast
 
 object LoginUtils {
-
-    // Add a constant for guest user
     private const val GUEST_USER_ID = "GUEST_USER"
-
     fun isUserLoggedIn(context: Context): Boolean {
         val sharedPref = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
 
@@ -19,13 +16,11 @@ object LoginUtils {
 
         Log.d("LoginUtils", "Checking login - userId: $userId, userRole: $userRole, IS_LOGGED_IN: $isLoggedIn")
 
-        // Special check: If userId is GUEST_USER, user is NOT logged in (it's a guest)
         if (userId == GUEST_USER_ID) {
             Log.d("LoginUtils", "❌ User is GUEST, not logged in")
             return false
         }
 
-        // Must have ALL required fields and NOT be guest
         val isValid = userId != null && userRole != null && isLoggedIn && userId != GUEST_USER_ID
 
         if (!isValid) {
@@ -37,7 +32,6 @@ object LoginUtils {
         return isValid
     }
 
-    // NEW: Check if user is guest
     fun isGuestUser(context: Context): Boolean {
         val sharedPref = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
         val userId = sharedPref.getString("USER_ID", null)
@@ -47,7 +41,6 @@ object LoginUtils {
     fun clearConflictingSession(context: Context) {
         val sharedPref = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
 
-        // Check what type of user we have
         val hasCustomerData = sharedPref.contains("USER_ID")
         val hasPharmacyData = sharedPref.contains("user_id")
 
@@ -67,18 +60,16 @@ object LoginUtils {
         }
     }
 
-    // NEW: Set user as guest
     fun setAsGuest(context: Context) {
         val sharedPref = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
         with(sharedPref.edit()) {
             putString("USER_ID", GUEST_USER_ID)
-            putBoolean("IS_LOGGED_IN", false) // Important: guests are NOT logged in
+            putBoolean("IS_LOGGED_IN", false)
             apply()
         }
         Log.d("LoginUtils", "User set as guest")
     }
 
-    // Update redirectToLogin to handle guest differently
     fun redirectToLogin(context: Context, message: String = "Please login to continue") {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         Log.d("LoginUtils", "Redirecting to login: $message")
@@ -89,22 +80,18 @@ object LoginUtils {
         context.startActivity(intent)
     }
 
-    // Get current user ID - return null for guests
     fun getCurrentUserId(context: Context): String? {
         val sharedPref = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
 
         val userId = sharedPref.getString("USER_ID", null) ?: sharedPref.getString("user_id", null)
 
-        // Return null for guests
         return if (userId == GUEST_USER_ID) null else userId
     }
 
-    // Rest of your functions remain the same...
     fun getCurrentUserType(context: Context): String? {
         val sharedPref = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
         val userType = sharedPref.getString("USER_ROLE", null) ?: sharedPref.getString("role", null)
 
-        // Return null for guests
         return if (isGuestUser(context)) null else userType
     }
 

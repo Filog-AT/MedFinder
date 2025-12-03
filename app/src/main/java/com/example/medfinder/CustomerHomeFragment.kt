@@ -12,12 +12,10 @@ class CustomerHomeFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        // Inflate the layout for this fragment
         val view = inflater.inflate(R.layout.fragment_customer_home, container, false)
 
-        // These function calls are now valid because the functions are defined below.
         initializeViews(view)
-        setupSearchFunctionality(view) // It's good practice to pass the view here too.
+        setupSearchFunctionality(view)
 
         return view
     }

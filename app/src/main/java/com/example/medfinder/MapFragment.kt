@@ -225,7 +225,7 @@ class MapFragment : Fragment() {
                     Log.d(TAG, "📍 Location updated: ${location.latitude}, ${location.longitude}")
 
                     updateUserLocationMarker(location)
-                    updateAllMarkerDistancesAndIcons() // Update ALL markers
+                    updateAllMarkerDistancesAndIcons()
 
                     if (locationMarker == null) {
                         centerMapToLocation(location)
@@ -245,7 +245,7 @@ class MapFragment : Fragment() {
                 currentLocation = it
                 Log.d(TAG, "📌 Last known location: ${it.latitude}, ${it.longitude}")
                 updateUserLocationMarker(it)
-                updateAllMarkerDistancesAndIcons() // Update ALL markers
+                updateAllMarkerDistancesAndIcons()
                 centerMapToLocation(it)
             } ?: run {
                 Log.d(TAG, "No last known location")
@@ -268,10 +268,8 @@ class MapFragment : Fragment() {
                 )
                 pharmacyData.distance = distance
 
-                // Update marker with new icon that includes distance
                 updateMarkerWithDistanceIcon(pharmacyData)
             }
-
             mapView?.invalidate()
         }
     }
@@ -283,14 +281,12 @@ class MapFragment : Fragment() {
         lon2: Double
     ): Double {
         val earthRadius = 6371.0
-
         val dLat = Math.toRadians(lat2 - lat1)
         val dLon = Math.toRadians(lon2 - lon1)
 
         val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
                 Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
                 Math.sin(dLon / 2) * Math.sin(dLon / 2)
-
         val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 
         return earthRadius * c
@@ -298,7 +294,6 @@ class MapFragment : Fragment() {
 
     private fun centerMapToLocation(location: Location) {
         val currentMapView = mapView ?: return
-
         val userLocation = GeoPoint(location.latitude, location.longitude)
         currentMapView.controller.animateTo(userLocation)
         currentMapView.controller.setZoom(18.0)
@@ -308,7 +303,6 @@ class MapFragment : Fragment() {
 
     private fun centerMapToDefaultLocation() {
         val currentMapView = mapView ?: return
-
         val defaultLocation = GeoPoint(16.41197, 120.59341)
         currentMapView.controller.animateTo(defaultLocation)
         currentMapView.controller.setZoom(18.0)
@@ -318,7 +312,6 @@ class MapFragment : Fragment() {
 
     private fun setupMap() {
         val currentMapView = mapView ?: return
-
         Log.d(TAG, "🗺 Setting up map...")
 
         currentMapView.setTileSource(XYTileSource(
@@ -341,27 +334,21 @@ class MapFragment : Fragment() {
 
     private fun searchPharmaciesWithMedicine(medicineName: String) {
         if (!isFragmentActive) return
-
         Log.d(TAG, "🔍 SEARCHING for medicine: $medicineName")
-
         clearMap()
         showToast("Searching for $medicineName...")
-
         db.collection("Pharmacies")
             .get()
             .addOnSuccessListener { pharmacyResult ->
                 if (!isFragmentActive) return@addOnSuccessListener
-
                 val totalPharmacies = pharmacyResult.size()
                 Log.d(TAG, "Found $totalPharmacies pharmacies")
-
                 if (totalPharmacies == 0) {
                     showToast("No pharmacies found")
                     return@addOnSuccessListener
                 }
 
                 var processedCount = 0
-
                 pharmacyResult.documents.forEach { pharmacyDoc ->
                     val pharmacyId = pharmacyDoc.id
                     val pharmacyName = pharmacyDoc.getString("pharmacy_name") ?: "Unknown Pharmacy"
@@ -391,7 +378,6 @@ class MapFragment : Fragment() {
                                 pharmacyData.distance = distance
                             }
 
-                            // Create marker with distance icon
                             val marker = createMarkerWithDistance(pharmacyData)
                             pharmacyData.marker = marker
                             pharmacyDataList.add(pharmacyData)
@@ -442,7 +428,6 @@ class MapFragment : Fragment() {
             }
     }
 
-    // NEW: Create marker with distance text drawn on the icon
     private fun createMarkerWithDistance(pharmacyData: PharmacyData): Marker? {
         val currentMapView = mapView ?: return null
 
@@ -455,13 +440,7 @@ class MapFragment : Fragment() {
             marker.setRelatedObject(pharmacyData.id)
             marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
 
-            // Choose which design to use:
-            // Option 1: Text below circle (clean and readable)
-            // val markerIcon = createSimpleMarkerWithDistance(pharmacyData)
-
-            // Option 2: Badge design (compact and stylish)
             val markerIcon = createBadgeMarkerWithDistance(pharmacyData)
-
             marker.setIcon(markerIcon)
 
             updateMarkerTitle(marker, pharmacyData)
@@ -481,39 +460,31 @@ class MapFragment : Fragment() {
     }
 
     private fun createFixedSizeMarker(pharmacyData: PharmacyData): Drawable {
-        // Always use the same size regardless of zoom
         val fixedWidth = 120
         val fixedHeight = 160
-
         val bitmap = Bitmap.createBitmap(fixedWidth, fixedHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-
-        // Your existing drawing code here, but with fixed sizes
-
         return BitmapDrawable(resources, bitmap)
     }
 
-    // NEW: Create marker icon with distance text drawn on it
     private fun createBadgeMarkerWithDistance(pharmacyData: PharmacyData): Drawable {
-        val circleDiameter = 120  // Increased circle size
-        val badgeHeight = 70      // Increased badge height
-        val padding = 10          // Increased padding
+        val circleDiameter = 120
+        val badgeHeight = 70
+        val padding = 10
         val totalHeight = circleDiameter + badgeHeight + padding
 
-        // Make the bitmap wider to accommodate larger badge
-        val bitmapWidth = circleDiameter + 40  // Increased from +20 to +40
+        val bitmapWidth = circleDiameter + 40
         val bitmap = Bitmap.createBitmap(bitmapWidth, totalHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
         canvas.drawColor(Color.TRANSPARENT)
 
-        // Draw main circle
         val circleColor = when {
             pharmacyData.medicineName.isNotEmpty() -> {
-                if (pharmacyData.hasMedicine) Color.parseColor("#4CAF50") // Bright green
-                else Color.parseColor("#F44336") // Bright red
+                if (pharmacyData.hasMedicine) Color.parseColor("#4CAF50")
+                else Color.parseColor("#F44336")
             }
-            else -> Color.parseColor("#2196F3") // Bright blue
+            else -> Color.parseColor("#2196F3")
         }
 
         val circlePaint = Paint().apply {
@@ -526,33 +497,31 @@ class MapFragment : Fragment() {
             color = Color.WHITE
             isAntiAlias = true
             style = Paint.Style.STROKE
-            strokeWidth = 5f  // Slightly thicker border
+            strokeWidth = 5f
         }
 
         val centerX = bitmapWidth / 2f
         val circleCenterY = circleDiameter / 2f
-        val circleRadius = circleDiameter / 2f - 10  // Adjusted for larger circle
+        val circleRadius = circleDiameter / 2f - 10
 
         canvas.drawCircle(centerX, circleCenterY, circleRadius, circlePaint)
         canvas.drawCircle(centerX, circleCenterY, circleRadius, borderPaint)
 
-        // Draw distance badge - MAKE IT WIDER
         val badgePaint = Paint().apply {
-            color = Color.parseColor("#222222") // Darker gray for better contrast
+            color = Color.parseColor("#222222")
             isAntiAlias = true
             style = Paint.Style.FILL
         }
 
-        // Make badge wider than the circle
-        val badgeWidth = circleRadius * 2 + 30  // 30 pixels wider than circle diameter
+        val badgeWidth = circleRadius * 2 + 30
         val badgeRect = RectF(
-            centerX - (badgeWidth / 2),  // Start further left
-            circleCenterY + circleRadius - 10,  // Position it slightly overlapping the circle
-            centerX + (badgeWidth / 2),  // End further right
-            circleCenterY + circleRadius + badgeHeight  // Keep same height
+            centerX - (badgeWidth / 2),
+            circleCenterY + circleRadius - 10,
+            centerX + (badgeWidth / 2),
+            circleCenterY + circleRadius + badgeHeight
         )
 
-        val cornerRadius = 15f  // Slightly larger corners
+        val cornerRadius = 15f
         canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, badgePaint)
 
         // Add border to the badge
@@ -564,7 +533,6 @@ class MapFragment : Fragment() {
         }
         canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, badgeBorderPaint)
 
-        // Draw distance text on badge
         val decimalFormat = DecimalFormat("#.#")
         val distanceText = if (pharmacyData.distance > 0) {
             "${decimalFormat.format(pharmacyData.distance)} km"
@@ -572,22 +540,19 @@ class MapFragment : Fragment() {
             "?? km"
         }
 
-        // Adjust text size for larger badge
         val textPaint = Paint().apply {
             color = Color.WHITE
-            textSize = 40f  // Increased from 38f
+            textSize = 40f
             typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
             isAntiAlias = true
             textAlign = Paint.Align.CENTER
             setShadowLayer(4f, 2f, 2f, Color.BLACK)  // Stronger shadow
         }
 
-        // Calculate text position
         val textBounds = Rect()
         textPaint.getTextBounds(distanceText, 0, distanceText.length, textBounds)
         val textY = badgeRect.centerY() + (textBounds.height() / 2f) - 5
 
-        // Optional: Draw background for text (makes it more readable)
         val textBgPadding = 10f
         val textBgRect = RectF(
             badgeRect.left + textBgPadding,
@@ -603,13 +568,11 @@ class MapFragment : Fragment() {
         }
         canvas.drawRoundRect(textBgRect, 8f, 8f, textBgPaint)
 
-        // Draw the distance text
         canvas.drawText(distanceText, centerX, textY, textPaint)
 
-        // Draw pharmacy initial or medicine indicator inside circle
         val circleTextPaint = Paint().apply {
             color = Color.WHITE
-            textSize = 36f  // Larger text inside circle
+            textSize = 36f
             typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
             isAntiAlias = true
             textAlign = Paint.Align.CENTER
@@ -617,7 +580,6 @@ class MapFragment : Fragment() {
         }
 
         if (pharmacyData.medicineName.isNotEmpty()) {
-            // Draw medicine indicator
             val medText = if (pharmacyData.hasMedicine) "✓" else "✗"
             val medBounds = Rect()
             circleTextPaint.getTextBounds(medText, 0, medText.length, medBounds)
@@ -625,7 +587,6 @@ class MapFragment : Fragment() {
 
             canvas.drawText(medText, centerX, medY, circleTextPaint)
         } else {
-            // Draw initial of pharmacy name
             val initial = if (pharmacyData.name.isNotEmpty()) {
                 pharmacyData.name[0].uppercaseChar().toString()
             } else {
@@ -645,7 +606,6 @@ class MapFragment : Fragment() {
         return drawable
     }
 
-    // NEW: Update existing marker icon with new distance
     private fun updateMarkerWithDistanceIcon(pharmacyData: PharmacyData) {
         pharmacyData.marker?.let { marker ->
             val newIcon = createBadgeMarkerWithDistance(pharmacyData)
@@ -668,7 +628,6 @@ class MapFragment : Fragment() {
         } else {
             marker.title = "${pharmacyData.name}\n📏 $distanceStr"
         }
-
         marker.snippet = "Tap for reservation"
     }
 
@@ -707,7 +666,6 @@ class MapFragment : Fragment() {
                             location = location
                         )
 
-                        // Calculate initial distance
                         currentLocation?.let { userLocation ->
                             val distance = calculateDistance(
                                 userLocation.latitude,
@@ -718,7 +676,6 @@ class MapFragment : Fragment() {
                             pharmacyData.distance = distance
                         }
 
-                        // Create marker with distance
                         val marker = createMarkerWithDistance(pharmacyData)
                         pharmacyData.marker = marker
                         pharmacyDataList.add(pharmacyData)
@@ -757,7 +714,6 @@ class MapFragment : Fragment() {
         marker.title = "Your Location"
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
 
-        // Create user location icon (simpler, no text needed)
         val userLocationIcon = createSimpleCircleMarker(Color.BLUE, true)
         marker.setIcon(userLocationIcon)
 
@@ -787,7 +743,6 @@ class MapFragment : Fragment() {
             strokeWidth = 3f
         }
         canvas.drawCircle(size / 2f, size / 2f, size / 2f - 2, borderPaint)
-
         val drawable = BitmapDrawable(resources, bitmap)
         drawable.setBounds(0, 0, size, size)
 
