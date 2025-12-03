@@ -41,7 +41,7 @@ class CustomerMainActivity : AppCompatActivity() {
         loadMedicineSuggestionsFromFirestore()
 
         if (savedInstanceState == null) {
-            replaceFragment(CustomerHomeFragment())
+            replaceFragment(ReservationHistoryFragment())
         }
     }
 
@@ -69,7 +69,7 @@ class CustomerMainActivity : AppCompatActivity() {
                 R.id.home -> {
                     searchView.setQuery("", false)
                     searchView.clearFocus()
-                    replaceFragment(CustomerHomeFragment())
+                    replaceFragment(ReservationHistoryFragment())
                 }
                 R.id.map -> {
                     replaceFragment(MapFragment())

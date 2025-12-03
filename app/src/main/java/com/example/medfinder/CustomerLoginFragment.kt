@@ -82,7 +82,9 @@ class CustomerLoginFragment : AppCompatActivity() {
             finish()
         }
 
-    } private fun saveUserSession(userId: String, role: String, userData: Map<String, Any>?) {
+    }
+
+    private fun saveUserSession(userId: String, role: String, userData: Map<String, Any>?) {
         val sharedPreferences = getSharedPreferences("user_session", MODE_PRIVATE)
         val editor = sharedPreferences.edit()
 

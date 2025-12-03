@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="4dp"
+    app:cardUseCompatPadding="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header: Date and Status -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_date"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Dec 4, 2023 2:30 PM"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PENDING"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="4dp"
+                android:background="@drawable/status_bkg"
+                android:gravity="center" />
+
+        </LinearLayout>
+
+        <!-- Pharmacy Name -->
+        <TextView
+            android:id="@+id/tv_pharmacy_name"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="HealthFirst Pharmacy"
+            android:textSize="14sp"
+            android:layout_marginTop="8dp" />
+
+        <!-- Medicine Count -->
+        <TextView
+            android:id="@+id/tv_medicine_count"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="3 medicine(s)"
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginTop="4dp" />
+
+        <!-- Total Price -->
+        <TextView
+            android:id="@+id/tv_total"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Total: ₱1500"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/primary"
+            android:layout_marginTop="8dp" />
+
+        <!-- View Details Button -->
+        <Button
+            android:id="@+id/btn_view_details"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="View Details"
+            android:layout_marginTop="12dp"
+            android:backgroundTint="@color/primary"
+            android:textColor="@android:color/white" />
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

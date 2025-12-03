@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp"
+    app:cardUseCompatPadding="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- Header: Date and Total -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tv_date"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Dec 4, 2023 2:30 PM"
+                android:textSize="12sp"
+                android:textColor="@android:color/darker_gray" />
+
+            <TextView
+                android:id="@+id/tv_total"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="₱1500"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/primary" />
+
+        </LinearLayout>
+
+        <!-- Medicine Count -->
+        <TextView
+            android:id="@+id/tv_medicine_count"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="3 medicine(s)"
+            android:textSize="11sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginTop="2dp" />
+
+        <!-- Medicines List -->
+        <TextView
+            android:id="@+id/tv_medicines"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Paracetamol (x2), Biogesic (x1)"
+            android:textSize="12sp"
+            android:layout_marginTop="8dp"
+            android:maxLines="2"
+            android:ellipsize="end" />
+
+        <!-- Action Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="12dp"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btn_confirm"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="Confirm"
+                android:textSize="12sp"
+                android:backgroundTint="@color/confirm_green"
+                android:textColor="@android:color/white" />
+
+            <Button
+                android:id="@+id/btn_complete"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginHorizontal="4dp"
+                android:text="Complete"
+                android:textSize="12sp"
+                android:backgroundTint="@color/complete_blue"
+                android:textColor="@android:color/white" />
+
+            <Button
+                android:id="@+id/btn_cancel"
+                android:layout_width="0dp"
+                android:layout_height="32dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="Cancel"
+                android:textSize="12sp"
+                android:backgroundTint="@color/cancel_red"
+                android:textColor="@android:color/white" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</androidx.cardview.widget.CardView>

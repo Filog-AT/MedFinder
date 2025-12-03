@@ -1,105 +1,184 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".HomeFragment">
+    android:fillViewport="true">
 
-
-    <androidx.constraintlayout.widget.ConstraintLayout
-        xmlns:app="http://schemas.android.com/apk/res-auto"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
 
-        <TableRow
-            android:id="@+id/low_stock"
-            android:paddingStart="20dp"
-            android:paddingTop="20dp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/head_list"
-            app:layout_constraintStart_toStartOf="parent">
-
-        <ImageView
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@drawable/low_stock_icon"
-            />
-
-        <TextView
-            android:layout_width="120dp"
-            android:layout_height="40dp"
-            android:layout_weight="1"
-            android:padding="3dp"
-            android:gravity="center"
-            android:text="Low Stock"
-            android:textSize="20sp"
-            android:textStyle="bold"/>
-        </TableRow>
-
-        <TableRow
-            android:id="@+id/head_list"
+        <!-- LOW STOCK SECTION -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            app:layout_constraintTop_toBottomOf="@id/low_stock"
-            app:layout_constraintBottom_toTopOf="@id/low_stock_list">
+            android:orientation="vertical"
+            android:background="@drawable/section_bkg"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@drawable/low_stock_icon"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Low Stock Medicines"
+                    android:textSize="18sp"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/tv_low_stock_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="(0)"
+                    android:textSize="14sp"
+                    android:textColor="@android:color/darker_gray"/>
+            </LinearLayout>
+
+            <!-- Low Stock Table Header -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:background="#F5F5F5"
+                android:padding="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="2"
+                    android:text="Medicine"
+                    android:textSize="12sp"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Brand"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:gravity="center"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Stock"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:gravity="center"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Price"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:gravity="center"/>
+            </LinearLayout>
+
+            <!-- Low Stock List -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/low_stock_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:maxHeight="300dp"/>
 
             <TextView
-                android:layout_width="70dp"
+                android:id="@+id/tv_no_low_stock"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:text="No low stock medicines"
                 android:gravity="center"
-                android:padding="3dp"
-                android:text="Name"
-                android:textSize="15sp"
-                android:textStyle="bold"/>
+                android:padding="16dp"
+                android:visibility="gone"/>
 
+        </LinearLayout>
 
-            <TextView
-                android:layout_width="90dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:padding="3dp"
-                android:text="Brand"
-                android:textSize="15sp"
-                android:textStyle="bold"/>
-
-            <TextView
-                android:layout_width="10dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:padding="3dp"
-                android:text="Quantity"
-                android:textSize="15sp"
-                android:textStyle="bold"/>
-
-            <TextView
-                android:layout_width="10dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:gravity="center"
-                android:padding="3dp"
-                android:text="Price"
-                android:textSize="15sp"
-                android:textStyle="bold"/>
-
-        </TableRow>
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:paddingStart="30dp"
-            android:id="@+id/low_stock_list"
-            android:layout_width="wrap_content"
+        <!-- RESERVATIONS SECTION -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="8dp"
-            android:clipToPadding="false"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/head_list"/>
+            android:orientation="vertical"
+            android:background="@drawable/section_bkg"
+            android:padding="16dp">
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
 
-</FrameLayout>
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_menu_agenda"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Pending Reservations"
+                    android:textSize="18sp"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/tv_reservation_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="(0)"
+                    android:textSize="14sp"
+                    android:textColor="@android:color/darker_gray"/>
+            </LinearLayout>
+
+            <!-- Reservations List -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/reservations_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxHeight="400dp"/>
+
+            <TextView
+                android:id="@+id/tv_no_reservations"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No pending reservations"
+                android:gravity="center"
+                android:padding="16dp"
+                android:visibility="gone"/>
+
+            <Button
+                android:id="@+id/btn_view_all_reservations"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="View All Reservations"
+                android:layout_marginTop="8dp"
+                android:backgroundTint="@color/primary"
+                android:textColor="@android:color/white"/>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</ScrollView>
