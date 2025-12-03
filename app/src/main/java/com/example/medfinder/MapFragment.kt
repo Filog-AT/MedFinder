@@ -9,8 +9,11 @@ import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.ImageButton
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -64,6 +67,22 @@ class MapFragment : Fragment() {
         }, 1000)
     }
 
+    // Add this to your MapFragment class
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Handle back press in child fragments
+        childFragmentManager.addOnBackStackChangedListener {
+            Log.d("MapFragment", "📊 Back stack changed, entries: ${childFragmentManager.backStackEntryCount}")
+
+            if (childFragmentManager.backStackEntryCount == 0) {
+                // No more fragments in back stack, hide the container
+                view?.findViewById<ViewGroup>(R.id.fragment_container)?.visibility = View.GONE
+                Log.d("MapFragment", "📦 Container hidden")
+            }
+        }
+    }
+
     private fun setupMap() {
         val currentMapView = mapView
         if (currentMapView == null) {
@@ -85,6 +104,39 @@ class MapFragment : Fragment() {
         val mapController = currentMapView.controller
         mapController.setZoom(18.0)
         mapController.setCenter(startPoint)
+
+        // Add marker click listener
+        currentMapView.overlays.add(object : org.osmdroid.views.overlay.Overlay() {
+            override fun onSingleTapConfirmed(e: MotionEvent?, mapView: MapView?): Boolean {
+                Log.d("MapFragment", "✅ Map tapped at coordinates: ${e?.x}, ${e?.y}")
+
+                if (e != null && mapView != null) {
+                    val projection = mapView.projection
+                    val geoPoint = projection.fromPixels(e.x.toInt(), e.y.toInt())
+                    Log.d("MapFragment", "📍 GeoPoint: $geoPoint")
+
+                    // Check if a marker was clicked
+                    for (overlay in mapView.overlays.reversed()) {
+                        if (overlay is Marker) {
+                            val markerPoint = overlay.position
+                            val distance = markerPoint.distanceToAsDouble(geoPoint)
+                            Log.d("MapFragment", "📌 Checking marker: ${overlay.title}, distance: $distance meters")
+
+                            // If click is near the marker (within 50m) - reduced threshold
+                            if (distance < 0.0001) { // Reduced from 0.0005 to 0.0001
+                                val pharmacyId = overlay.relatedObject as? String
+                                Log.d("MapFragment", "🎯 Marker clicked! Pharmacy ID: $pharmacyId")
+                                if (pharmacyId != null) {
+                                    openReservationFragment(pharmacyId)
+                                    return true
+                                }
+                            }
+                        }
+                    }
+                }
+                return false
+            }
+        })
     }
 
     private fun searchPharmaciesWithMedicine(medicineName: String) {
@@ -121,6 +173,9 @@ class MapFragment : Fragment() {
                         checkMedicineStock(pharmacyId, pharmacyName, location, medicineName) { hasMedicine ->
                             completedQueries++
                             Log.d("MapFragment", "Completed $completedQueries/$totalPharmacies - $pharmacyName has $medicineName: $hasMedicine")
+
+                            // Pass pharmacyId to addPharmacyMarker
+                            addPharmacyMarker(pharmacyName, location, hasMedicine, medicineName, pharmacyId)
 
                             if (completedQueries == totalPharmacies) {
                                 showSearchResultsSummary(medicineName, totalPharmacies)
@@ -163,13 +218,13 @@ class MapFragment : Fragment() {
 
                 Log.d("MapFragment", "🎯 RESULT: $pharmacyName - $medicineName available: $hasMedicine (Found ${inventoryResult.size()} items)")
 
-                addPharmacyMarker(pharmacyName, location, hasMedicine, medicineName)
+                // addPharmacyMarker is now called from the callback above with pharmacyId
                 onComplete(hasMedicine)
             }
             .addOnFailureListener { e ->
                 if (!isFragmentActive) return@addOnFailureListener
                 Log.e("MapFragment", "Error checking inventory for $pharmacyName", e)
-                addPharmacyMarker(pharmacyName, location, false, medicineName)
+                // addPharmacyMarker is now called from the callback above with pharmacyId
                 onComplete(false)
             }
     }
@@ -178,7 +233,8 @@ class MapFragment : Fragment() {
         name: String,
         location: com.google.firebase.firestore.GeoPoint,
         hasMedicine: Boolean,
-        medicineName: String
+        medicineName: String,
+        pharmacyId: String
     ) {
         try {
             val currentMapView = mapView
@@ -189,6 +245,9 @@ class MapFragment : Fragment() {
 
             val marker = Marker(currentMapView)
             marker.position = GeoPoint(location.latitude, location.longitude)
+
+            // Store pharmacy ID in the marker
+            marker.setRelatedObject(pharmacyId)
 
             val markerColor = if (hasMedicine) Color.GREEN else Color.RED
             val markerDrawable = createColoredCircleMarker(markerColor)
@@ -205,6 +264,16 @@ class MapFragment : Fragment() {
             marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
             marker.setPanToView(false)
 
+            // Add click listener to marker
+            marker.setOnMarkerClickListener { marker, mapView ->
+                Log.d("MapFragment", "🎯 Marker clicked: ${marker.title}")
+                val clickedPharmacyId = marker.relatedObject as? String
+                if (clickedPharmacyId != null) {
+                    openReservationFragment(clickedPharmacyId)
+                }
+                true
+            }
+
             currentMapView.overlays.add(marker)
             currentMapView.invalidate()
 
@@ -212,6 +281,7 @@ class MapFragment : Fragment() {
             Log.e("MapFragment", "Error adding marker for $name: ${e.message}")
         }
     }
+
 
     private fun createColoredCircleMarker(color: Int): Drawable {
         val size = 40
@@ -249,9 +319,10 @@ class MapFragment : Fragment() {
                 result.documents.forEach { document ->
                     val location = document.getGeoPoint("Location")
                     val name = document.getString("pharmacy_name") ?: "Unknown Pharmacy"
+                    val pharmacyId = document.id  // Get the pharmacy ID
 
                     if (location != null) {
-                        addSimpleMarker(name, location)
+                        addSimpleMarker(name, location, pharmacyId)
                     }
                 }
                 mapView?.invalidate()
@@ -264,7 +335,11 @@ class MapFragment : Fragment() {
             }
     }
 
-    private fun addSimpleMarker(name: String, location: com.google.firebase.firestore.GeoPoint) {
+    private fun addSimpleMarker(
+        name: String,
+        location: com.google.firebase.firestore.GeoPoint,
+        pharmacyId: String
+    ) {
         try {
             val currentMapView = mapView
             if (currentMapView == null) {
@@ -276,10 +351,23 @@ class MapFragment : Fragment() {
             marker.position = GeoPoint(location.latitude, location.longitude)
             marker.title = name
 
+            // Store pharmacy ID in the marker
+            marker.setRelatedObject(pharmacyId)
+
             val neutralMarker = createColoredCircleMarker(Color.BLUE)
             marker.setIcon(neutralMarker)
             marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
             marker.setPanToView(false)
+
+            // Add click listener to marker
+            marker.setOnMarkerClickListener { marker, mapView ->
+                Log.d("MapFragment", "🎯 Marker clicked: ${marker.title}")
+                val clickedPharmacyId = marker.relatedObject as? String
+                if (clickedPharmacyId != null) {
+                    openReservationFragment(clickedPharmacyId)
+                }
+                true
+            }
 
             currentMapView.overlays.add(marker)
 
@@ -303,6 +391,40 @@ class MapFragment : Fragment() {
 
         Log.d("MapFragment", "📊 $message")
         showToast(message)
+    }
+
+    private fun openReservationFragment(pharmacyId: String) {
+        try {
+            Log.d("MapFragment", "🚀 Opening reservation fragment for pharmacy: $pharmacyId")
+
+            // Create the reservation fragment
+            val reservationFragment = MedicineReservationFragment.newInstance(pharmacyId)
+
+            // Get the container and make it visible
+            val container = view?.findViewById<ViewGroup>(R.id.fragment_container)
+            if (container != null) {
+                container.visibility = View.VISIBLE
+                Log.d("MapFragment", "✅ Container made visible")
+            }
+
+            // Use child fragment manager since this is already a fragment
+            childFragmentManager.beginTransaction()
+                .setCustomAnimations(
+                    R.anim.slide_in_up,
+                    R.anim.slide_out_down,
+                    R.anim.slide_in_up,
+                    R.anim.slide_out_down
+                )
+                .replace(R.id.fragment_container, reservationFragment, "RESERVATION_FRAGMENT")
+                .addToBackStack("reservation")
+                .commit()
+
+            Log.d("MapFragment", "✅ Transaction committed")
+
+        } catch (e: Exception) {
+            Log.e("MapFragment", "❌ Error opening reservation fragment: ${e.message}", e)
+            Toast.makeText(requireContext(), "Error opening reservation", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun showToast(message: String) {
