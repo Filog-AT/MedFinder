@@ -23,27 +23,31 @@
         tools:replace="android:appComponentFactory"
         tools:targetApi="28">
         <activity
+            android:name=".NavigationActivity"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:screenOrientation="portrait"
+            android:exported="false" />
+        <activity
             android:name=".PharmacyLocationPickerActivity"
             android:exported="false"
             android:theme="@style/Theme.MedFinder" />
         <activity
             android:name=".CustomerMainActivity"
-            android:exported="false"></activity>
+            android:exported="false" />
         <activity
             android:name=".MainActivity"
-            android:exported="false"></activity>
+            android:exported="false" />
         <activity
             android:name=".LoginFragment"
-            android:exported="false"></activity>
+            android:exported="false" />
         <activity
             android:name=".CustomerLoginFragment"
-            android:exported="false"></activity>
+            android:exported="false" />
         <activity
             android:name=".StartActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>

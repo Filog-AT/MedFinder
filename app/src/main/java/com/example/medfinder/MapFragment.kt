@@ -3,6 +3,7 @@ package com.example.medfinder
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -14,13 +15,13 @@ import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.location.Location
-import android.location.LocationManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
@@ -44,6 +45,7 @@ import org.osmdroid.views.overlay.infowindow.InfoWindow
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 import java.text.DecimalFormat
+import androidx.fragment.app.DialogFragment
 
 class MapFragment : Fragment() {
 
@@ -54,7 +56,7 @@ class MapFragment : Fragment() {
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
-    private var currentLocation: Location? = null
+    internal var currentLocation: Location? = null
     private var locationMarker: Marker? = null
     private var myLocationOverlay: MyLocationNewOverlay? = null
 
@@ -71,7 +73,24 @@ class MapFragment : Fragment() {
         var hasMedicine: Boolean = false,
         var medicineName: String = "",
         var marker: Marker? = null
-    )
+    ) : java.io.Serializable {
+        // Convert GeoPoint to serializable format
+        fun getLocationLat(): Double = location.latitude
+        fun getLocationLng(): Double = location.longitude
+
+        // Create a copy with primitive types for serialization
+        fun toSerializableMap(): Map<String, Any> {
+            return mapOf(
+                "id" to id,
+                "name" to name,
+                "latitude" to location.latitude,
+                "longitude" to location.longitude,
+                "distance" to distance,
+                "hasMedicine" to hasMedicine,
+                "medicineName" to medicineName
+            )
+        }
+    }
 
     companion object {
         private const val TAG = "MapFragment"
@@ -445,9 +464,9 @@ class MapFragment : Fragment() {
 
             updateMarkerTitle(marker, pharmacyData)
 
+            // Updated OnMarkerClickListener with navigation option
             marker.setOnMarkerClickListener { clickedMarker, mapView ->
-                clickedMarker.showInfoWindow()
-                openReservationFragment(pharmacyData.id)
+                showPharmacyBottomSheet(pharmacyData)
                 true
             }
 
@@ -456,6 +475,16 @@ class MapFragment : Fragment() {
         } catch (e: Exception) {
             Log.e(TAG, "Error creating marker for ${pharmacyData.name}: ${e.message}")
             return null
+        }
+    }
+
+    private fun showPharmacyBottomSheet(pharmacyData: PharmacyData) {
+        try {
+            val bottomSheetFragment = PharmacyBottomSheetFragment.newInstance(pharmacyData) // Use Fragment
+            bottomSheetFragment.show(parentFragmentManager, "PharmacyBottomSheet")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error showing bottom sheet: ${e.message}", e)
+            Toast.makeText(requireContext(), "Error showing pharmacy details", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -628,7 +657,7 @@ class MapFragment : Fragment() {
         } else {
             marker.title = "${pharmacyData.name}\n📏 $distanceStr"
         }
-        marker.snippet = "Tap for reservation"
+        marker.snippet = "Tap for options"
     }
 
     private fun clearMap() {
@@ -763,6 +792,67 @@ class MapFragment : Fragment() {
         showToast(message)
     }
 
+    private fun showPharmacyOptions(pharmacyData: PharmacyData) {
+        val options = arrayOf("Get Directions", "Make Reservation", "Cancel")
+
+        android.app.AlertDialog.Builder(requireContext())
+            .setTitle("Pharmacy Options")
+            .setMessage("Select an option for ${pharmacyData.name}")
+            .setItems(options) { dialog, which ->
+                when (which) {
+                    0 -> openDirectionsToPharmacy(pharmacyData)
+                    1 -> openReservationFragment(pharmacyData.id)
+                    // 2 is Cancel
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun openDirectionsToPharmacy(pharmacyData: PharmacyData) {
+        try {
+            currentLocation?.let { userLocation ->
+                val destinationLat = pharmacyData.location.latitude
+                val destinationLng = pharmacyData.location.longitude
+
+                // Create Google Maps intent
+                val gmmIntentUri = Uri.parse(
+                    "google.navigation:q=$destinationLat,$destinationLng&mode=d"
+                )
+                val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                mapIntent.setPackage("com.google.android.apps.maps")
+
+                // Check if Google Maps is installed
+                if (mapIntent.resolveActivity(requireContext().packageManager) != null) {
+                    startActivity(mapIntent)
+                } else {
+                    // Fallback to web browser with Google Maps
+                    val webUri = Uri.parse(
+                        "https://www.google.com/maps/dir/?api=1" +
+                                "&destination=$destinationLat,$destinationLng" +
+                                "&travelmode=driving"
+                    )
+                    val webIntent = Intent(Intent.ACTION_VIEW, webUri)
+                    startActivity(webIntent)
+                }
+
+                Log.d(TAG, "🗺️ Opening directions to ${pharmacyData.name}")
+                Toast.makeText(requireContext(), "Opening directions...", Toast.LENGTH_SHORT).show()
+            } ?: run {
+                Toast.makeText(requireContext(),
+                    "Unable to get your current location. Please enable location services.",
+                    Toast.LENGTH_LONG).show()
+                checkLocationPermission()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error opening directions: ${e.message}", e)
+            Toast.makeText(requireContext(),
+                "Error opening navigation app. Please install Google Maps.",
+                Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun openReservationFragment(pharmacyId: String) {
         try {
             Log.d(TAG, "🚀 Opening reservation fragment for pharmacy: $pharmacyId")
@@ -791,10 +881,10 @@ class MapFragment : Fragment() {
 
             childFragmentManager.beginTransaction()
                 .setCustomAnimations(
-                    R.anim.slide_in_up,
-                    R.anim.slide_out_down,
-                    R.anim.slide_in_up,
-                    R.anim.slide_out_down
+                    R.anim.slide_in_up,      // Your custom slide_in_up
+                    R.anim.slide_out_down,   // Your custom slide_out_down
+                    R.anim.slide_in_up,      // Your custom slide_in_up
+                    R.anim.slide_out_down    // Your custom slide_out_down
                 )
                 .replace(R.id.fragment_container, reservationFragment, "RESERVATION_FRAGMENT")
                 .addToBackStack("reservation")

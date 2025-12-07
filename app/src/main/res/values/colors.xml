@@ -12,7 +12,7 @@
     <color name="confirm_green">#4CAF50</color>
     <color name="complete_blue">#2196F3</color>
     <color name="cancel_red">#F44336</color>
-    <color name="light_gray">#CCCCCC</color>
     <color name="dark_gray">#333333</color>
-
+    <color name="light_gray">#E0E0E0</color>
+    <color name="route_color">#4285F4</color>
 </resources>
