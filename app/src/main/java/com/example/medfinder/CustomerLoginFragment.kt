@@ -24,6 +24,8 @@ class CustomerLoginFragment : AppCompatActivity() {
         val password = findViewById<EditText>(R.id.password_input)
         val loginBtn = findViewById<Button>(R.id.login_btn)
         val guestloginBtn = findViewById<Button>(R.id.guest_login)
+        val signupBtn = findViewById<Button>(R.id.signup_btn)
+
 
         selectedRole = "customer"
 
@@ -82,6 +84,11 @@ class CustomerLoginFragment : AppCompatActivity() {
             finish()
         }
 
+        signupBtn.setOnClickListener {
+            val i = Intent(this, CustomerSignUpFragment::class.java)
+            startActivity(i)
+
+        }
     }
 
     private fun saveUserSession(userId: String, role: String, userData: Map<String, Any>?) {

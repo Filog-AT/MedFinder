@@ -22,6 +22,8 @@ class LoginFragment : AppCompatActivity() {
         val username = findViewById<EditText>(R.id.username_input)
         val password = findViewById<EditText>(R.id.password_input)
         val loginBtn = findViewById<Button>(R.id.login_btn)
+        val signupBtn = findViewById<Button>(R.id.signup_btn)
+
 
         loginBtn.setOnClickListener {
             val user = username.text.toString().trim()
@@ -61,6 +63,10 @@ class LoginFragment : AppCompatActivity() {
                 .addOnFailureListener { e ->
                     Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
+        }
+        signupBtn.setOnClickListener {
+            val i = Intent(this, PharmacySignUpFragment::class.java)
+            startActivity(i)
         }
     }
 

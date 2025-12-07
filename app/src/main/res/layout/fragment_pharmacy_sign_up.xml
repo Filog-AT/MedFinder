@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/login_background"
+    android:padding="20dp">
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Back Button -->
+            <ImageView
+                android:id="@+id/btn_back"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_back"
+                app:tint="@color/white"
+                android:layout_marginBottom="20dp"
+                android:contentDescription="Back" />
+
+            <!-- Title -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Register Your Pharmacy"
+                android:textSize="28sp"
+                android:textColor="@color/white"
+                android:layout_marginBottom="30dp" />
+
+            <!-- Pharmacy Name -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pharmacy Name *"
+                android:textSize="16sp"
+                android:textColor="@color/white"
+                android:layout_marginBottom="8dp" />
+
+            <EditText
+                android:id="@+id/et_pharmacy_name"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:background="@drawable/rounded_edittext"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:textColor="@color/white"
+                android:textColorHint="@color/light_gray"
+                android:hint="Enter pharmacy name"
+                android:inputType="text"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Username -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Username *"
+                android:textSize="16sp"
+                android:textColor="@color/white"
+                android:layout_marginBottom="8dp" />
+
+            <EditText
+                android:id="@+id/et_username"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:background="@drawable/rounded_edittext"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:textColor="@color/white"
+                android:textColorHint="@color/light_gray"
+                android:hint="Choose a username"
+                android:inputType="text"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Email -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Email Address *"
+                android:textSize="16sp"
+                android:textColor="@color/white"
+                android:layout_marginBottom="8dp" />
+
+            <EditText
+                android:id="@+id/et_email"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:background="@drawable/rounded_edittext"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:textColor="@color/white"
+                android:textColorHint="@color/light_gray"
+                android:hint="Enter email address"
+                android:inputType="textEmailAddress"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Phone Number -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Phone Number *"
+                android:textSize="16sp"
+                android:textColor="@color/white"
+                android:layout_marginBottom="8dp" />
+
+            <EditText
+                android:id="@+id/et_phone"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:background="@drawable/rounded_edittext"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:textColor="@color/white"
+                android:textColorHint="@color/light_gray"
+                android:hint="Enter phone number"
+                android:inputType="phone"
+                android:layout_marginBottom="16dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Pharmacy Location *"
+                android:textSize="16sp"
+                android:textColor="@color/white"
+                android:layout_marginBottom="8dp" />
+
+            <!-- Location Button -->
+            <Button
+                android:id="@+id/btn_set_location"
+                android:layout_width="match_parent"
+                android:layout_height="50dp"
+                android:text="📌 Set Pharmacy Location on Map"
+                android:textSize="16sp"
+                android:backgroundTint="#4CAF50"
+                android:textColor="@color/white"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Selected Location Display -->
+            <TextView
+                android:id="@+id/tv_location_selected"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No location selected"
+                android:textSize="14sp"
+                android:textColor="@color/light_gray"
+                android:layout_marginBottom="16dp"
+                android:visibility="gone" />
+
+            <!-- Password -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Password *"
+                android:textSize="16sp"
+                android:textColor="@color/white"
+                android:layout_marginBottom="8dp" />
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp">
+
+                <EditText
+                    android:id="@+id/et_password"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/rounded_edittext"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="56dp"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/light_gray"
+                    android:hint="Create a password"
+                    android:inputType="textPassword" />
+
+                <ImageView
+                    android:id="@+id/iv_show_password"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:layout_marginEnd="16dp"
+                    android:src="@drawable/ic_visibility"
+                    app:tint="@color/light_gray"
+                    android:contentDescription="Show password" />
+            </RelativeLayout>
+
+            <!-- Confirm Password -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Confirm Password *"
+                android:textSize="16sp"
+                android:textColor="@color/white"
+                android:layout_marginBottom="8dp" />
+
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="30dp">
+
+                <EditText
+                    android:id="@+id/et_confirm_password"
+                    android:layout_width="match_parent"
+                    android:layout_height="50dp"
+                    android:background="@drawable/rounded_edittext"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="56dp"
+                    android:textColor="@color/white"
+                    android:textColorHint="@color/light_gray"
+                    android:hint="Confirm your password"
+                    android:inputType="textPassword" />
+
+                <ImageView
+                    android:id="@+id/iv_show_confirm_password"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:layout_marginEnd="16dp"
+                    android:src="@drawable/ic_visibility"
+                    app:tint="@color/light_gray"
+                    android:contentDescription="Show confirm password" />
+            </RelativeLayout>
+
+            <!-- Terms and Conditions -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="20dp"
+                android:gravity="center_vertical">
+
+                <CheckBox
+                    android:id="@+id/cb_terms"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:buttonTint="@color/white" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="I agree to the Terms and Conditions"
+                    android:textSize="14sp"
+                    android:textColor="@color/white"
+                    android:layout_marginStart="8dp" />
+            </LinearLayout>
+
+            <!-- Sign Up Button -->
+            <Button
+                android:id="@+id/btn_signup"
+                android:layout_width="match_parent"
+                android:layout_height="55dp"
+                android:text="Register Pharmacy"
+                android:textSize="18sp"
+                android:backgroundTint="#7E06ED"
+                android:textColor="@color/white"
+                android:layout_marginBottom="20dp" />
+
+            <!-- Progress Bar -->
+            <ProgressBar
+                android:id="@+id/progress_bar"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:visibility="gone"
+                android:layout_marginBottom="20dp" />
+
+            <!-- Login Link -->
+            <TextView
+                android:id="@+id/tv_login"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="Already have an account? Login"
+                android:textSize="16sp"
+                android:textColor="@color/white"
+                android:padding="10dp" />
+
+        </LinearLayout>
+    </ScrollView>
+
+</RelativeLayout>

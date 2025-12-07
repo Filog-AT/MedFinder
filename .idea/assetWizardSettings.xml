@@ -18,7 +18,7 @@
                                 <PersistentState>
                                   <option name="values">
                                     <map>
-                                      <entry key="url" value="file:/$USER_HOME$/AppData/Local/Android/Sdk/icons/material/materialicons/warning_amber/baseline_warning_amber_24.xml" />
+                                      <entry key="url" value="file:/$USER_HOME$/AppData/Local/Android/Sdk/icons/material/materialicons/visibility_off/baseline_visibility_off_24.xml" />
                                     </map>
                                   </option>
                                 </PersistentState>
@@ -28,8 +28,8 @@
                         </option>
                         <option name="values">
                           <map>
-                            <entry key="color" value="ff0000" />
-                            <entry key="outputName" value="low_stock_icon" />
+                            <entry key="color" value="020202" />
+                            <entry key="outputName" value="ic_visibility_off" />
                             <entry key="sourceFile" value="C:\Users\Frost\AndroidStudioProjects\MedFinder" />
                           </map>
                         </option>
