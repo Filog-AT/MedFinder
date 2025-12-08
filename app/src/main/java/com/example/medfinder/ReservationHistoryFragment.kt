@@ -8,12 +8,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.firestore.FirebaseFirestore
-import java.text.SimpleDateFormat
-import java.util.*
 
 class ReservationHistoryFragment : Fragment() {
 
@@ -37,7 +36,16 @@ class ReservationHistoryFragment : Fragment() {
         recyclerView = view.findViewById(R.id.reservation_recycler_view)
         emptyText = view.findViewById(R.id.tv_empty)
 
-        adapter = ReservationAdapter(reservationList)
+        adapter = ReservationAdapter(
+            reservationList = reservationList,
+            onCancelClickListener = { reservation ->
+                showCancelConfirmationDialog(reservation)
+            },
+            onTrackClickListener = { reservation ->
+                showTrackOrderDialog(reservation)
+            }
+        )
+
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
 
@@ -78,22 +86,50 @@ class ReservationHistoryFragment : Fragment() {
                 Log.e("ReservationHistory", "Error loading reservations", e)
             }
     }
+
+    private fun showCancelConfirmationDialog(reservation: Reservation) {
+        AlertDialog.Builder(requireContext())
+            .setTitle("Cancel Order")
+            .setMessage("Are you sure you want to cancel this order? This action cannot be undone.")
+            .setPositiveButton("Yes, Cancel") { dialog, which ->
+                cancelOrder(reservation)
+            }
+            .setNegativeButton("No", null)
+            .show()
+    }
+
+    private fun cancelOrder(reservation: Reservation) {
+        if (reservation.id == null) return
+
+        // Show loading
+        Toast.makeText(requireContext(), "Cancelling order...", Toast.LENGTH_SHORT).show()
+
+        db.collection("Reservations")
+            .document(reservation.id!!)
+            .update("status", "cancelled")
+            .addOnSuccessListener {
+                Toast.makeText(requireContext(), "Order cancelled successfully", Toast.LENGTH_SHORT).show()
+                // Refresh the list
+                loadReservations()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(requireContext(), "Failed to cancel order", Toast.LENGTH_SHORT).show()
+                Log.e("ReservationHistory", "Error cancelling order", e)
+            }
+    }
+
+    private fun showTrackOrderDialog(reservation: Reservation) {
+        val message = when (reservation.status.lowercase()) {
+            "pending" -> "Your order is pending confirmation from the pharmacy."
+            "confirmed" -> "Your order has been confirmed. Please proceed to the pharmacy to pick up your medicines."
+            "completed" -> "Your order has been completed. Thank you for your purchase!"
+            else -> "Tracking information not available."
+        }
+
+        AlertDialog.Builder(requireContext())
+            .setTitle("Order Status")
+            .setMessage("Status: ${reservation.status.uppercase()}\n\n$message")
+            .setPositiveButton("OK", null)
+            .show()
+    }
 }
-
-// Reservation data class
-data class Reservation(
-    var id: String? = null,
-    var user_id: String = "",
-    var pharmacy_id: String = "",
-    var medicines: List<MedicineItem> = emptyList(),
-    var status: String = "pending", // pending, confirmed, completed, cancelled
-    var total_price: Int = 0,
-    var created_at: Long = 0
-)
-
-data class MedicineItem(
-    var medicine_id: String = "",
-    var medicine_name: String = "",
-    var quantity: Int = 0,
-    var price: Int = 0
-)
