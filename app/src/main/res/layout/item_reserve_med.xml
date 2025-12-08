@@ -93,7 +93,6 @@
             android:layout_height="wrap_content"
             android:inputType="number"
             android:text="1"
-            android:enabled="false"
             android:padding="8dp"
             android:background="@drawable/edit_text_bkg"/>
     </LinearLayout>

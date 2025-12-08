@@ -1,6 +1,8 @@
 package com.example.medfinder
 
 import Medicine
+import android.text.Editable
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,6 +11,7 @@ import android.widget.TextView
 import android.widget.CheckBox
 import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
+import android.text.TextWatcher
 
 class ReservationMedicineAdapter(
     private val medicineList: List<Medicine>,
@@ -99,6 +102,16 @@ class ReservationMedicineAdapter(
         holder.checkBox.isChecked = isSelected
         holder.quantityEditText.isEnabled = holder.checkBox.isChecked
 
+        val selectedQuantity = if (isSelected && medicineId != null)
+            selectedMedicines[medicineId]!!.second
+        else {
+            // Try to read from EditText if it has a value
+            val textValue = holder.quantityEditText.text.toString()
+            if (textValue.isNotEmpty()) textValue.toIntOrNull() ?: 1 else 1
+        }
+
+        holder.quantityEditText.setText(selectedQuantity.toString())
+
         holder.quantityEditText.setText(
             if (isSelected && medicineId != null)
                 selectedMedicines[medicineId]!!.second.toString()
@@ -113,9 +126,19 @@ class ReservationMedicineAdapter(
                     Toast.LENGTH_SHORT).show()
                 return@setOnCheckedChangeListener
             }
+            Log.d("ReserveMedAdapter", "Checkbox state changed. isChecked: $isChecked")
+            Log.d("ReserveMedAdapter", "EditText value: '${holder.quantityEditText.text}'")
+
+            val quantityText = holder.quantityEditText.text.toString()
+            Log.d("ReserveMedAdapter", "Quantity text: '$quantityText'")
 
             if (isChecked) {
-                val quantity = holder.quantityEditText.text.toString().toIntOrNull() ?: 1
+                // FIX: Read quantity from EditText when checkbox is checked
+                val quantityText = holder.quantityEditText.text.toString()
+                val quantity = quantityText.toIntOrNull() ?: 1
+
+                Log.d("ReserveMedAdapter", "Medicine: ${medicine.medicine_name}, Quantity entered: $quantityText, Parsed: $quantity")
+
                 if (quantity > 0 && quantity <= medicine.stock) {
                     selectedMedicines[medicineId] = Pair(medicine, quantity)
                     holder.quantityEditText.isEnabled = true
@@ -138,12 +161,30 @@ class ReservationMedicineAdapter(
             }
         }
 
+        holder.quantityEditText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                if (medicineId != null && holder.checkBox.isChecked && s != null) {
+                    val quantity = s.toString().toIntOrNull() ?: 1
+                    if (quantity > 0 && quantity <= medicine.stock) {
+                        selectedMedicines[medicineId] = Pair(medicine, quantity)
+                    }
+                }
+            }
+
+            override fun afterTextChanged(s: Editable?) {}
+        })
         holder.quantityEditText.setOnFocusChangeListener { _, hasFocus ->
             if (medicineId == null || !holder.checkBox.isChecked)
                 return@setOnFocusChangeListener
 
             if (!hasFocus) {
-                val quantity = holder.quantityEditText.text.toString().toIntOrNull() ?: 1
+                val quantityText = holder.quantityEditText.text.toString()
+                val quantity = quantityText.toIntOrNull() ?: 1
+
+                Log.d("ReserveMedAdapter", "Focus lost. Medicine: ${medicine.medicine_name}, Quantity: $quantity")
+
                 if (quantity > 0 && quantity <= medicine.stock) {
                     selectedMedicines[medicineId] = Pair(medicine, quantity)
                 } else {

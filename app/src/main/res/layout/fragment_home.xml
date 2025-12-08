@@ -179,6 +179,63 @@
 
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/to_be_claimed_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/section_bkg"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="12dp">
+
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_menu_directions"
+                    android:layout_marginEnd="8dp"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="To Be Claimed"
+                    android:textSize="18sp"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/tv_to_be_claimed_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="(0)"
+                    android:textSize="14sp"
+                    android:textColor="@android:color/darker_gray"/>
+            </LinearLayout>
+
+            <!-- To Be Claimed List -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/to_be_claimed_list"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:maxHeight="400dp"/>
+
+            <TextView
+                android:id="@+id/tv_no_to_be_claimed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="No reservations to be claimed"
+                android:gravity="center"
+                android:padding="16dp"
+                android:visibility="gone"/>
+
+        </LinearLayout>
+
     </LinearLayout>
 
 </ScrollView>

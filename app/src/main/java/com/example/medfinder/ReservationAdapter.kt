@@ -34,21 +34,32 @@ class ReservationAdapter(
         val date = Date(reservation.created_at)
 
         holder.dateText.text = dateFormat.format(date)
-        holder.statusText.text = reservation.status.uppercase()
+
+        // FIX: Update status text to show time limit
+        updateStatusText(holder.statusText, reservation)
+
         holder.totalText.text = "Total: ₱${reservation.total_price}"
 
         // Set status color
         val statusColor = when (reservation.status.lowercase()) {
             "pending" -> android.graphics.Color.parseColor("#FFA726") // Orange
+            "time_limit_set" -> android.graphics.Color.parseColor("#2196F3") // Blue for time limit
             "confirmed" -> android.graphics.Color.parseColor("#4CAF50") // Green
             "completed" -> android.graphics.Color.parseColor("#2196F3") // Blue
             "cancelled" -> android.graphics.Color.parseColor("#F44336") // Red
+            "received" -> android.graphics.Color.parseColor("#9C27B0") // Purple for received
             else -> android.graphics.Color.GRAY
         }
         holder.statusText.setTextColor(statusColor)
 
-        // Show medicine count
-        holder.medicineCount.text = "${reservation.medicines.size} medicine(s)"
+        // FIX: Show total items count, not just medicine types
+        val totalItems = reservation.medicines.sumOf { it.quantity }
+        holder.medicineCount.text = "$totalItems item(s)"
+
+        // Also update the medicine display to show quantities
+        if (isExpanded) {
+            setupMedicinesList(holder, reservation)
+        }
 
         // Load pharmacy name - you might want to fetch pharmacy name from Firestore
         holder.pharmacyName.text = "Pharmacy ID: ${reservation.pharmacy_id}"
@@ -56,11 +67,6 @@ class ReservationAdapter(
         // Handle expand/collapse
         holder.expandedSection.visibility = if (isExpanded) View.VISIBLE else View.GONE
         holder.viewDetailsBtn.text = if (isExpanded) "Hide Details" else "View Details"
-
-        // Setup medicines list if expanded
-        if (isExpanded) {
-            setupMedicinesList(holder, reservation)
-        }
 
         // Set up button click listeners
         holder.viewDetailsBtn.setOnClickListener {
@@ -82,7 +88,9 @@ class ReservationAdapter(
 
         // Hide cancel button if order is already cancelled or completed
         if (reservation.status.lowercase() == "cancelled" ||
-            reservation.status.lowercase() == "completed") {
+            reservation.status.lowercase() == "completed" ||
+            reservation.status.lowercase() == "received" ||
+            reservation.status.lowercase() == "confirmed") {
             holder.cancelBtn.visibility = View.GONE
         } else {
             holder.cancelBtn.visibility = View.VISIBLE
@@ -93,6 +101,38 @@ class ReservationAdapter(
             holder.trackBtn.visibility = View.GONE
         } else {
             holder.trackBtn.visibility = View.VISIBLE
+        }
+    }
+
+    // FIX: New method to properly display status text
+    private fun updateStatusText(statusView: TextView, reservation: Reservation) {
+        when (reservation.status.lowercase()) {
+            "pending" -> {
+                statusView.text = "PENDING"
+            }
+            "time_limit_set" -> {
+                // Show time limit if available
+                if (reservation.time_limit_minutes > 0) {
+                    statusView.text = "${reservation.time_limit_minutes} MIN"
+                } else {
+                    statusView.text = "CONFIRMED"
+                }
+            }
+            "confirmed" -> {
+                statusView.text = "CONFIRMED"
+            }
+            "cancelled" -> {
+                statusView.text = "CANCELLED"
+            }
+            "received" -> {
+                statusView.text = "RECEIVED"
+            }
+            "completed" -> {
+                statusView.text = "COMPLETED"
+            }
+            else -> {
+                statusView.text = reservation.status.uppercase()
+            }
         }
     }
 
@@ -107,6 +147,12 @@ class ReservationAdapter(
 
             val medicineName = medicineView.findViewById<TextView>(R.id.tv_medicine_name)
             val medicineQuantity = medicineView.findViewById<TextView>(R.id.tv_medicine_quantity)
+            val medicinePrice = medicineView.findViewById<TextView>(R.id.tv_medicine_price)
+
+            // Check if these views exist, if not, use alternative approach
+            if (medicinePrice != null) {
+                medicinePrice.text = "₱${medicine.price * medicine.quantity}"
+            }
 
             medicineName.text = medicine.medicine_name
             medicineQuantity.text = "Qty: ${medicine.quantity}"

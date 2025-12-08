@@ -244,6 +244,10 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
         val nonPrescriptionSelected = nonPrescriptionAdapter.getSelectedMedicines()
         val prescriptionSelected = prescriptionAdapter.getSelectedMedicines()
         val allSelectedMedicines = nonPrescriptionSelected + prescriptionSelected
+        Log.d(TAG, "Creating reservation with medicines:")
+        allSelectedMedicines.forEach { (medicine, quantity) ->
+            Log.d(TAG, "- ${medicine.medicine_name}: quantity = $quantity, price = ${medicine.price}, stock = ${medicine.stock}")
+        }
 
         if (allSelectedMedicines.isEmpty()) {
             Toast.makeText(requireContext(), "Please select at least one medicine", Toast.LENGTH_SHORT).show()
@@ -277,15 +281,16 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
         // Check if any selected medicines require prescription
         val hasPrescriptionMeds = prescriptionSelected.isNotEmpty()
 
-        // Create reservation object
+        // Create reservation object - THIS SHOULD BE ONE RESERVATION
         val reservation = Reservation(
             user_id = userId,
             pharmacy_id = pharmacyData.id,
             medicines = allSelectedMedicines.map { (medicine, quantity) ->
+                Log.d(TAG, "Adding to reservation: ${medicine.medicine_name} x$quantity")
                 MedicineItem(
                     medicine_id = medicine.id ?: "",
                     medicine_name = medicine.medicine_name,
-                    quantity = quantity,
+                    quantity = quantity,  // MAKE SURE THIS IS THE CORRECT QUANTITY
                     price = medicine.price,
                     requires_prescription = medicine.requires_prescription
                 )
@@ -293,14 +298,20 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
             status = "pending",
             total_price = totalPrice,
             created_at = System.currentTimeMillis(),
-            has_prescription_meds = hasPrescriptionMeds
+            has_prescription_meds = hasPrescriptionMeds,
+            customer_name = LoginUtils.getCurrentUserName(requireContext()) ?: "",
+            customer_phone = ""  // You might want to store user phone in shared prefs
         )
 
-        // Save to Firestore
+        Log.d(TAG, "Creating ONE reservation with ${allSelectedMedicines.size} medicines")
+        Log.d(TAG, "Medicines in reservation: ${reservation.medicines.joinToString { "${it.medicine_name} x${it.quantity}" }}")
+
+        // Save to Firestore - THIS SHOULD BE ONE DOCUMENT
         db.collection("Reservations")
             .add(reservation)
             .addOnSuccessListener { documentReference ->
                 Log.d(TAG, "Reservation created with ID: ${documentReference.id}")
+                Log.d(TAG, "This ONE reservation contains ${reservation.medicines.size} medicine items")
 
                 // Update medicine stock
                 updateMedicineStock(allSelectedMedicines)
@@ -342,8 +353,19 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
                     .collection("Medicines")
                     .document(medicineId)
 
+                // Get current stock and subtract the reserved quantity
+                // FIX: Make sure we're using the correct quantity
+                Log.d(TAG, "Updating stock for ${medicine.medicine_name}: current stock = ${medicine.stock}, quantity to reserve = $quantity")
+
                 val newStock = medicine.stock - quantity
+                if (newStock < 0) {
+                    Log.e(TAG, "Error: Stock would go negative for ${medicine.medicine_name}")
+                    Toast.makeText(requireContext(), "Error: Not enough stock for ${medicine.medicine_name}", Toast.LENGTH_SHORT).show()
+                    return
+                }
+
                 batch.update(medicineRef, "stock", newStock)
+                Log.d(TAG, "Stock updated: ${medicine.medicine_name} from ${medicine.stock} to $newStock (reserved $quantity)")
             }
         }
 
@@ -353,6 +375,7 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Error updating medicine stock", e)
+                Toast.makeText(requireContext(), "Error updating stock: ${e.message}", Toast.LENGTH_SHORT).show()
             }
     }
 
@@ -543,8 +566,8 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
                     recyclerView.layoutManager = LinearLayoutManager(requireContext())
 
                     // Use the ReservationItemAdapter
-                    recyclerView.adapter = ReservationItemAdapter(reservationsList) { reservationId, newStatus ->
-                        updateReservationStatus(reservationId, newStatus, recyclerView, infoTextView, noReservationsText)
+                    recyclerView.adapter = ReservationItemAdapter(reservationsList) { reservationId, newStatus, timeLimitMinutes ->
+                        updateReservationStatus(reservationId, newStatus, timeLimitMinutes, recyclerView, infoTextView, noReservationsText)
                     }
                     recyclerView.visibility = View.VISIBLE
                     noReservationsText.visibility = View.GONE
@@ -564,15 +587,36 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
     private fun updateReservationStatus(
         reservationId: String,
         newStatus: String,
+        timeLimitMinutes: Int?,
         recyclerView: RecyclerView,
         infoTextView: TextView,
         noReservationsText: TextView
     ) {
+        // Build the updates map
+        val updates = hashMapOf<String, Any>(
+            "status" to newStatus
+        )
+
+        // Add time limit if provided
+        if (timeLimitMinutes != null) {
+            updates["time_limit_minutes"] = timeLimitMinutes
+            updates["time_limit_set_at"] = System.currentTimeMillis()
+        }
+
+        // Update in Firestore
         db.collection("Reservations")
             .document(reservationId)
-            .update("status", newStatus)
+            .update(updates)
             .addOnSuccessListener {
-                Toast.makeText(requireContext(), "Reservation $newStatus", Toast.LENGTH_SHORT).show()
+                val message = when {
+                    timeLimitMinutes != null && timeLimitMinutes > 0 ->
+                        "Time limit of $timeLimitMinutes minutes set"
+                    newStatus == "confirmed" -> "Reservation confirmed"
+                    newStatus == "cancelled" -> "Reservation cancelled"
+                    else -> "Reservation updated"
+                }
+                Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
+
                 // Refresh the reservations list
                 loadReservationsForPharmacy(recyclerView, infoTextView, noReservationsText)
             }

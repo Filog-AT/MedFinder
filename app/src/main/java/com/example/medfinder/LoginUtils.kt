@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import android.widget.Toast
+import android.content.SharedPreferences
 
 object LoginUtils {
     private const val GUEST_USER_ID = "GUEST_USER"
@@ -30,6 +31,11 @@ object LoginUtils {
         }
 
         return isValid
+    }
+
+    fun getCurrentUserName(context: Context): String? {
+        val sharedPref = context.getSharedPreferences("user_session", Context.MODE_PRIVATE)
+        return sharedPref.getString("username", null)
     }
 
     fun isGuestUser(context: Context): Boolean {
