@@ -275,6 +275,10 @@ class MapFragment : Fragment() {
 
     private fun updateAllMarkerDistancesAndIcons() {
         currentLocation?.let { userLocation ->
+            val currentMapView = mapView ?: return
+            val currentZoom = currentMapView.zoomLevelDouble
+            val scale = getMarkerScaleForZoomLevel(currentZoom)
+
             Log.d(TAG, "📏 Updating distances and icons for ${pharmacyDataList.size} pharmacies")
 
             pharmacyDataList.forEach { pharmacyData ->
@@ -287,7 +291,12 @@ class MapFragment : Fragment() {
                 )
                 pharmacyData.distance = distance
 
-                updateMarkerWithDistanceIcon(pharmacyData)
+                // Update with current scale
+                pharmacyData.marker?.let { marker ->
+                    val newIcon = createBadgeMarkerWithDistance(pharmacyData, scale)
+                    marker.setIcon(newIcon)
+                    updateMarkerTitle(marker, pharmacyData)
+                }
             }
             mapView?.invalidate()
         }
@@ -347,8 +356,41 @@ class MapFragment : Fragment() {
         currentMapView.controller.setCenter(startPoint)
         currentMapView.controller.setZoom(15.0)
 
+        // Add zoom listener
+        currentMapView.addMapListener(object : org.osmdroid.events.MapListener {
+            override fun onScroll(event: org.osmdroid.events.ScrollEvent?): Boolean {
+                return false
+            }
+
+            override fun onZoom(event: org.osmdroid.events.ZoomEvent?): Boolean {
+                event?.let {
+                    // Update all markers when zoom changes
+                    updateAllMarkersForZoomLevel()
+                }
+                return false
+            }
+        })
+
         isMapInitialized = true
         Log.d(TAG, "✅ Map setup complete")
+    }
+
+    private fun updateAllMarkersForZoomLevel() {
+        val currentMapView = mapView ?: return
+        val currentZoom = currentMapView.zoomLevelDouble
+        val scale = getMarkerScaleForZoomLevel(currentZoom)
+
+        Log.d(TAG, "🔄 Updating markers for zoom level: $currentZoom, scale: $scale")
+
+        pharmacyDataList.forEach { pharmacyData ->
+            pharmacyData.marker?.let { marker ->
+                val newIcon = createBadgeMarkerWithDistance(pharmacyData, scale)
+                marker.setIcon(newIcon)
+            }
+        }
+
+        // Refresh the map
+        currentMapView.invalidate()
     }
 
     private fun searchPharmaciesWithMedicine(medicineName: String) {
@@ -459,10 +501,17 @@ class MapFragment : Fragment() {
             marker.setRelatedObject(pharmacyData.id)
             marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
 
-            val markerIcon = createBadgeMarkerWithDistance(pharmacyData)
+            // Get current zoom level and calculate scale
+            val currentZoom = currentMapView.zoomLevelDouble
+            val scale = getMarkerScaleForZoomLevel(currentZoom)
+
+            val markerIcon = createBadgeMarkerWithDistance(pharmacyData, scale)
             marker.setIcon(markerIcon)
 
             updateMarkerTitle(marker, pharmacyData)
+
+            // Store the scale with the marker
+            marker.setRelatedObject(scale)
 
             // Updated OnMarkerClickListener with navigation option
             marker.setOnMarkerClickListener { clickedMarker, mapView ->
@@ -496,12 +545,14 @@ class MapFragment : Fragment() {
         return BitmapDrawable(resources, bitmap)
     }
 
-    private fun createBadgeMarkerWithDistance(pharmacyData: PharmacyData): Drawable {
-        val circleDiameter = 120
-        val badgeHeight = 70
-        val padding = 10
+    private fun createBadgeMarkerWithDistance(pharmacyData: PharmacyData, scale: Float = 1.0f): Drawable {
+        val baseCircleDiameter = 140
+        val baseBadgeHeight = 70
+        val basePadding = 10
+        val circleDiameter = (baseCircleDiameter * scale).toInt()
+        val badgeHeight = (baseBadgeHeight * scale).toInt()
+        val padding = (basePadding * scale).toInt()
         val totalHeight = circleDiameter + badgeHeight + padding
-
         val bitmapWidth = circleDiameter + 40
         val bitmap = Bitmap.createBitmap(bitmapWidth, totalHeight, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
@@ -526,15 +577,22 @@ class MapFragment : Fragment() {
             color = Color.WHITE
             isAntiAlias = true
             style = Paint.Style.STROKE
-            strokeWidth = 5f
+            strokeWidth = 5f * scale
         }
 
         val centerX = bitmapWidth / 2f
         val circleCenterY = circleDiameter / 2f
-        val circleRadius = circleDiameter / 2f - 10
 
-        canvas.drawCircle(centerX, circleCenterY, circleRadius, circlePaint)
-        canvas.drawCircle(centerX, circleCenterY, circleRadius, borderPaint)
+        val ovalWidth = circleDiameter.toFloat()
+        val ovalHeight = circleDiameter.toFloat() * 0.8f
+        val ovalLeft = centerX - (ovalWidth / 2f)
+        val ovalTop = circleCenterY - (ovalHeight / 2f)
+        val ovalRight = centerX + (ovalWidth / 2f)
+        val ovalBottom = circleCenterY + (ovalHeight / 2f)
+        val ovalRect = RectF(ovalLeft, ovalTop, ovalRight, ovalBottom)
+
+        canvas.drawOval(ovalRect, circlePaint)
+        canvas.drawOval(ovalRect, borderPaint)
 
         val badgePaint = Paint().apply {
             color = Color.parseColor("#222222")
@@ -542,91 +600,86 @@ class MapFragment : Fragment() {
             style = Paint.Style.FILL
         }
 
-        val badgeWidth = circleRadius * 2 + 30
+        val badgeWidth = ovalWidth * 0.8f
         val badgeRect = RectF(
             centerX - (badgeWidth / 2),
-            circleCenterY + circleRadius - 10,
+            circleCenterY + (ovalHeight / 2) - (10 * scale),
             centerX + (badgeWidth / 2),
-            circleCenterY + circleRadius + badgeHeight
+            circleCenterY + (ovalHeight / 2) + (badgeHeight * scale)
         )
 
-        val cornerRadius = 15f
+        val cornerRadius = 10f * scale
         canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, badgePaint)
 
-        // Add border to the badge
         val badgeBorderPaint = Paint().apply {
             color = Color.WHITE
             isAntiAlias = true
             style = Paint.Style.STROKE
-            strokeWidth = 2f
+            strokeWidth = 2f * scale
         }
         canvas.drawRoundRect(badgeRect, cornerRadius, cornerRadius, badgeBorderPaint)
-
         val decimalFormat = DecimalFormat("#.#")
         val distanceText = if (pharmacyData.distance > 0) {
             "${decimalFormat.format(pharmacyData.distance)} km"
         } else {
             "?? km"
         }
-
-        val textPaint = Paint().apply {
+        val distanceTextPaint = Paint().apply {
             color = Color.WHITE
-            textSize = 40f
+            textSize = 30f * scale
             typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
             isAntiAlias = true
             textAlign = Paint.Align.CENTER
-            setShadowLayer(4f, 2f, 2f, Color.BLACK)  // Stronger shadow
         }
-
-        val textBounds = Rect()
-        textPaint.getTextBounds(distanceText, 0, distanceText.length, textBounds)
-        val textY = badgeRect.centerY() + (textBounds.height() / 2f) - 5
-
-        val textBgPadding = 10f
-        val textBgRect = RectF(
-            badgeRect.left + textBgPadding,
-            textY - textBounds.height() - textBgPadding,
-            badgeRect.right - textBgPadding,
-            textY + textBgPadding
-        )
+        val distanceBounds = Rect()
+        distanceTextPaint.getTextBounds(distanceText, 0, distanceText.length, distanceBounds)
+        val distanceY = badgeRect.centerY() + (distanceBounds.height() / 2f) - (2 * scale)
         val textBgPaint = Paint().apply {
             color = Color.parseColor("#444444")
             isAntiAlias = true
             style = Paint.Style.FILL
-            alpha = 180
+            alpha = 150
         }
-        canvas.drawRoundRect(textBgRect, 8f, 8f, textBgPaint)
-
-        canvas.drawText(distanceText, centerX, textY, textPaint)
+        val textBgPadding = 4f * scale
+        val textBgRect = RectF(
+            badgeRect.left + textBgPadding,
+            distanceY - distanceBounds.height() - textBgPadding,
+            badgeRect.right - textBgPadding,
+            distanceY + textBgPadding
+        )
+        canvas.drawRoundRect(textBgRect, 5f * scale, 5f * scale, textBgPaint)
+        canvas.drawText(distanceText, centerX, distanceY, distanceTextPaint)
 
         val circleTextPaint = Paint().apply {
             color = Color.WHITE
-            textSize = 36f
+            textSize = 28f * scale  // Pharmacy name text size
             typeface = Typeface.create(Typeface.DEFAULT_BOLD, Typeface.BOLD)
             isAntiAlias = true
             textAlign = Paint.Align.CENTER
-            setShadowLayer(3f, 1f, 1f, Color.BLACK)
+            setShadowLayer(2f * scale, 1f * scale, 1f * scale, Color.BLACK)
         }
 
         if (pharmacyData.medicineName.isNotEmpty()) {
             val medText = if (pharmacyData.hasMedicine) "✓" else "✗"
             val medBounds = Rect()
             circleTextPaint.getTextBounds(medText, 0, medText.length, medBounds)
-            val medY = circleCenterY + (medBounds.height() / 2f) - 8
+            val medY = circleCenterY + (medBounds.height() / 2f) - (8 * scale)
 
             canvas.drawText(medText, centerX, medY, circleTextPaint)
         } else {
-            val initial = if (pharmacyData.name.isNotEmpty()) {
-                pharmacyData.name[0].uppercaseChar().toString()
+            val pharmacyName = pharmacyData.name
+            val displayText = if (pharmacyName.contains(" ")) {
+                val firstWord = pharmacyName.substring(0, pharmacyName.indexOf(" "))
+                if (firstWord.length > 8) firstWord.substring(0, 7) + "." else firstWord
             } else {
-                "P"
+                if (pharmacyName.length > 8) pharmacyName.substring(0, 7) + "." else pharmacyName
             }
 
-            val initialBounds = Rect()
-            circleTextPaint.getTextBounds(initial, 0, initial.length, initialBounds)
-            val initialY = circleCenterY + (initialBounds.height() / 2f) - 8
+            val nameBounds = Rect()
+            circleTextPaint.getTextBounds(displayText, 0, displayText.length, nameBounds)
 
-            canvas.drawText(initial, centerX, initialY, circleTextPaint)
+            val nameY = circleCenterY + (nameBounds.height() / 2f) - (5 * scale)
+            canvas.drawText(displayText, centerX, nameY, circleTextPaint)
         }
 
         val drawable = BitmapDrawable(resources, bitmap)
@@ -635,9 +688,26 @@ class MapFragment : Fragment() {
         return drawable
     }
 
+    private fun getMarkerScaleForZoomLevel(zoomLevel: Double): Float {
+        // Define scaling rules
+        return when {
+            zoomLevel >= 18.0 -> 1.0f      // Max zoom: full size (100%)
+            zoomLevel >= 16.0 -> 0.8f      // City level: 80%
+            zoomLevel >= 14.0 -> 0.6f      // Neighborhood: 60%
+            zoomLevel >= 12.0 -> 0.4f      // Town: 40%
+            zoomLevel >= 10.0 -> 0.3f      // Region: 30% (your requested minimum)
+            zoomLevel >= 8.0  -> 0.25f     // State: 25%
+            zoomLevel >= 6.0  -> 0.2f      // Country: 20%
+            else -> 0.15f                  // World view: 15%
+        }
+    }
     private fun updateMarkerWithDistanceIcon(pharmacyData: PharmacyData) {
         pharmacyData.marker?.let { marker ->
-            val newIcon = createBadgeMarkerWithDistance(pharmacyData)
+            val currentMapView = mapView ?: return
+            val currentZoom = currentMapView.zoomLevelDouble
+            val scale = getMarkerScaleForZoomLevel(currentZoom)
+
+            val newIcon = createBadgeMarkerWithDistance(pharmacyData, scale)
             marker.setIcon(newIcon)
             updateMarkerTitle(marker, pharmacyData)
         }
@@ -743,7 +813,7 @@ class MapFragment : Fragment() {
         marker.title = "Your Location"
         marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
 
-        val userLocationIcon = createSimpleCircleMarker(Color.BLUE, true)
+        val userLocationIcon = ContextCompat.getDrawable(requireContext(), R.drawable.my_location_icon)
         marker.setIcon(userLocationIcon)
 
         currentMapView.overlays.add(marker)
