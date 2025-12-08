@@ -23,6 +23,14 @@ class SimpleMedicineAdapter(
         holder.brand.text = medicine.brand_name
         holder.price.text = "Price: ₱${medicine.price}"
         holder.stock.text = "Stock: ${medicine.stock}"
+
+        // Show prescription requirement
+        if (medicine.requires_prescription) {
+            holder.prescriptionInfo.visibility = View.VISIBLE
+            holder.prescriptionInfo.text = "📋 Requires Prescription"
+        } else {
+            holder.prescriptionInfo.visibility = View.GONE
+        }
     }
 
     override fun getItemCount(): Int = medicineList.size
@@ -32,5 +40,6 @@ class SimpleMedicineAdapter(
         val brand: TextView = itemView.findViewById(R.id.tv_brand)
         val price: TextView = itemView.findViewById(R.id.tv_price)
         val stock: TextView = itemView.findViewById(R.id.tv_stock)
+        val prescriptionInfo: TextView = itemView.findViewById(R.id.tv_prescription_info)
     }
 }

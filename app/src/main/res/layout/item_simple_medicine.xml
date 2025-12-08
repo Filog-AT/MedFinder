@@ -23,6 +23,16 @@
         android:textColor="#757575"
         android:layout_marginTop="2dp"/>
 
+    <!-- Prescription info -->
+    <TextView
+        android:id="@+id/tv_prescription_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="12sp"
+        android:textColor="@android:color/holo_red_dark"
+        android:visibility="gone"
+        android:layout_marginTop="2dp"/>
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

@@ -6,5 +6,6 @@ data class Medicine(
     val pharmacy_id: String = "",
     var price: Int = 0,
     var stock: Int = 0,
-    var distance: Double = 0.0
+    var distance: Double = 0.0,
+    var requires_prescription: Boolean = false
 )

@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.CheckBox
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 
@@ -23,13 +24,13 @@ class ReservationMedicineAdapter(
         notifyDataSetChanged()
     }
 
-    // Select all available medicines
+    // Select all available medicines (excluding prescription-required)
     fun selectAllMedicines() {
         selectedMedicines.clear()
         medicineList.forEach { medicine ->
-            // Store the id in a local variable to avoid smart cast issues
             val medicineId = medicine.id
-            if (medicine.stock > 0 && medicineId != null) {
+            // Only select medicines that don't require prescription
+            if (medicine.stock > 0 && medicineId != null && !medicine.requires_prescription) {
                 selectedMedicines[medicineId] = Pair(medicine, 1)
             }
         }
@@ -50,7 +51,6 @@ class ReservationMedicineAdapter(
 
     override fun onBindViewHolder(holder: ReservationViewHolder, position: Int) {
         val medicine = medicineList[position]
-        // Store id in local variable to avoid repeated null checks and smart cast issues
         val medicineId = medicine.id
 
         holder.name.text = medicine.medicine_name
@@ -58,23 +58,54 @@ class ReservationMedicineAdapter(
         holder.price.text = "Price: ₱${medicine.price}"
         holder.stock.text = "Available: ${medicine.stock}"
 
+        // Show prescription requirement warning
+        if (medicine.requires_prescription) {
+            holder.prescriptionWarning.visibility = View.VISIBLE
+            holder.prescriptionWarning.text = "📋 Prescription Required"
+        } else {
+            holder.prescriptionWarning.visibility = View.GONE
+        }
+
+        // Check if medicine requires prescription
+        val requiresPrescription = medicine.requires_prescription
+
         if (!canReserve) {
+            // User not logged in or not customer
             holder.checkBox.isEnabled = false
             holder.quantityEditText.isEnabled = false
             holder.checkBox.alpha = 0.5f
             holder.quantityEditText.alpha = 0.5f
 
-            // Show message why
             holder.itemView.setOnClickListener {
                 Toast.makeText(holder.itemView.context,
                     "Please login as customer to select medicines",
                     Toast.LENGTH_SHORT).show()
             }
+        } else if (requiresPrescription) {
+            // Medicine requires prescription - disable selection
+            holder.checkBox.isEnabled = false
+            holder.quantityEditText.isEnabled = false
+            holder.checkBox.alpha = 0.5f
+            holder.quantityEditText.alpha = 0.5f
+
+            // Show why it's disabled
+            holder.itemView.setOnClickListener {
+                Toast.makeText(holder.itemView.context,
+                    "This medicine requires a doctor's prescription. Please visit the pharmacy with your prescription.",
+                    Toast.LENGTH_LONG).show()
+            }
+
+            // Change text color to indicate prescription requirement
+            holder.name.setTextColor(holder.itemView.context.getColor(android.R.color.holo_red_dark))
         } else {
+            // Medicine doesn't require prescription - enable selection
             holder.checkBox.isEnabled = true
             holder.quantityEditText.isEnabled = holder.checkBox.isChecked
             holder.checkBox.alpha = 1f
             holder.quantityEditText.alpha = 1f
+
+            // Reset text color
+            holder.name.setTextColor(holder.itemView.context.getColor(android.R.color.black))
         }
 
         holder.checkBox.setOnCheckedChangeListener(null) // Clear previous listener
@@ -82,7 +113,7 @@ class ReservationMedicineAdapter(
         // Reset UI state
         val isSelected = if (medicineId != null) selectedMedicines.containsKey(medicineId) else false
         holder.checkBox.isChecked = isSelected
-        holder.quantityEditText.isEnabled = holder.checkBox.isChecked
+        holder.quantityEditText.isEnabled = holder.checkBox.isChecked && !requiresPrescription
 
         holder.quantityEditText.setText(
             if (isSelected && medicineId != null)
@@ -96,6 +127,14 @@ class ReservationMedicineAdapter(
                 Toast.makeText(holder.itemView.context,
                     "Medicine ID is missing",
                     Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
+
+            if (requiresPrescription) {
+                holder.checkBox.isChecked = false
+                Toast.makeText(holder.itemView.context,
+                    "Cannot reserve: This medicine requires a doctor's prescription",
+                    Toast.LENGTH_LONG).show()
                 return@setOnCheckedChangeListener
             }
 
@@ -117,7 +156,8 @@ class ReservationMedicineAdapter(
         }
 
         holder.quantityEditText.setOnFocusChangeListener { _, hasFocus ->
-            if (medicineId == null || !holder.checkBox.isChecked) return@setOnFocusChangeListener
+            if (medicineId == null || !holder.checkBox.isChecked || requiresPrescription)
+                return@setOnFocusChangeListener
 
             if (!hasFocus) {
                 val quantity = holder.quantityEditText.text.toString().toIntOrNull() ?: 1
@@ -146,6 +186,7 @@ class ReservationMedicineAdapter(
         val brand: TextView = itemView.findViewById(R.id.tv_brand)
         val price: TextView = itemView.findViewById(R.id.tv_price)
         val stock: TextView = itemView.findViewById(R.id.tv_stock)
+        val prescriptionWarning: TextView = itemView.findViewById(R.id.tv_prescription_warning)
         val quantityEditText: EditText = itemView.findViewById(R.id.et_quantity)
     }
 }

@@ -19,6 +19,10 @@ import com.google.android.material.tabs.TabLayout
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.DecimalFormat
 import java.util.*
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationResult
+import android.location.Location as AndroidLocation
+import androidx.core.app.ActivityCompat
 
 class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
 
@@ -110,6 +114,11 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
 
         // Setup directions button
         btnDirections.setOnClickListener {
+            // Check if pharmacy has location
+            if (pharmacyData.location == null) {
+                Toast.makeText(requireContext(), "Pharmacy location not available", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
             openInternalDirections()
         }
 
@@ -538,7 +547,101 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
                 requireContext(),
                 android.Manifest.permission.ACCESS_COARSE_LOCATION
             ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        )
+        ) {
+            // Request permission if not granted
+            requestPermissions(
+                arrayOf(
+                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                    android.Manifest.permission.ACCESS_COARSE_LOCATION
+                ),
+                1001
+            )
+            Toast.makeText(requireContext(), "Please grant location permission", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         Log.d(TAG, "Location permission granted, getting last location")
+
+        fusedLocationClient.lastLocation
+            .addOnSuccessListener { location: android.location.Location? ->
+                if (location != null) {
+                    Log.d(TAG, "Location obtained: ${location.latitude}, ${location.longitude}")
+                    // Start navigation with obtained location
+                    startNavigationActivity(location)
+                } else {
+                    Log.d(TAG, "No last known location, requesting location updates")
+                    requestLocationUpdates()
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Error getting location", e)
+                Toast.makeText(requireContext(), "Failed to get location", Toast.LENGTH_SHORT).show()
+            }
+    }
+    private fun requestLocationUpdates() {
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
+        val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
+            priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
+            interval = 10000
+            fastestInterval = 5000
+        }
+
+        if (androidx.core.app.ActivityCompat.checkSelfPermission(
+                requireContext(),
+                android.Manifest.permission.ACCESS_FINE_LOCATION
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
+            androidx.core.app.ActivityCompat.checkSelfPermission(
+                requireContext(),
+                android.Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            object : com.google.android.gms.location.LocationCallback() {
+                override fun onLocationResult(locationResult: com.google.android.gms.location.LocationResult) {
+                    locationResult.lastLocation?.let { location ->
+                        Log.d(TAG, "Location update received: ${location.latitude}, ${location.longitude}")
+                        fusedLocationClient.removeLocationUpdates(this)
+                        startNavigationActivity(location)
+                    }
+                }
+            },
+            null
+        )
+    }
+
+    private fun startNavigationActivity(userLocation: android.location.Location) {
+        Log.d(TAG, "Starting navigation activity")
+        Log.d(TAG, "Pharmacy: ${pharmacyData.name}")
+        Log.d(TAG, "Pharmacy location GeoPoint: ${pharmacyData.location}")
+        Log.d(TAG, "User location: ${userLocation.latitude}, ${userLocation.longitude}")
+
+        // Get latitude and longitude from the GeoPoint
+        val destinationLat = pharmacyData.location.latitude
+        val destinationLng = pharmacyData.location.longitude
+
+        Log.d(TAG, "Destination coordinates: $destinationLat, $destinationLng")
+
+        // Check if we have valid coordinates
+        if (destinationLat == 0.0 || destinationLng == 0.0) {
+            Toast.makeText(requireContext(), "Invalid pharmacy location", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Start NavigationActivity
+        NavigationActivity.startNavigation(
+            requireContext(),
+            pharmacyData.id,
+            pharmacyData.name,
+            destinationLat,
+            destinationLng,
+            userLocation
+        )
+
+        // Close the bottom sheet
+        dismiss()
     }
 }
