@@ -1,174 +1,263 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:background="@drawable/bottom_sheet_background"
-    android:elevation="8dp">
+    android:layout_height="match_parent"
+    android:background="@android:color/transparent">
 
-    <!-- Drag handle -->
-    <View
-        android:layout_width="40dp"
-        android:layout_height="4dp"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp"
-        android:layout_gravity="center_horizontal"
-        android:background="#CCCCCC" />
-
-    <!-- Header (Peek view) -->
+    <!-- Bottom Sheet Content -->
     <LinearLayout
-        android:id="@+id/header_layout"
+        android:id="@+id/bottom_sheet"
         android:layout_width="match_parent"
-        android:layout_height="120dp"
-        android:orientation="horizontal"
-        android:padding="16dp"
-        android:gravity="center_vertical">
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@android:color/white"
+        android:elevation="16dp"
+        app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior"
+        app:behavior_peekHeight="200dp"
+        app:behavior_hideable="true"
+        app:behavior_fitToContents="false"
+        app:behavior_skipCollapsed="false">
 
+        <!-- Drag handle -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:id="@+id/drag_handle_container"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:gravity="center_horizontal"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true">
 
-            <TextView
-                android:id="@+id/tv_pharmacy_name"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Pharmacy Name"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@android:color/black"
-                android:maxLines="2"
-                android:ellipsize="end" />
-
-            <TextView
-                android:id="@+id/tv_distance"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Distance"
-                android:textSize="14sp"
-                android:textColor="#757575"
-                android:layout_marginTop="4dp" />
-
-            <TextView
-                android:id="@+id/tv_status"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Status"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                android:layout_marginTop="4dp"
-                android:visibility="gone" />
+            <View
+                android:id="@+id/drag_handle"
+                android:layout_width="40dp"
+                android:layout_height="4dp"
+                android:background="#CCCCCC"
+                android:layout_marginBottom="8dp" />
 
         </LinearLayout>
 
-        <Button
-            android:id="@+id/btn_directions"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Directions"
-            android:drawableLeft="@android:drawable/ic_menu_directions"
-            android:drawablePadding="4dp"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:backgroundTint="#2196F3"
-            android:textColor="@android:color/white" />
-
-    </LinearLayout>
-    <LinearLayout
-        android:id="@+id/layout_selected_summary"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:visibility="gone"
-        android:padding="12dp"
-        android:background="@drawable/item_background"
-        android:layout_marginBottom="16dp">
-
-        <TextView
-            android:id="@+id/tv_selected_count"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Selected: 0 items"
-            android:textSize="14sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/tv_total_price"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Total: ₱0"
-            android:textSize="14sp"
-            android:layout_marginTop="4dp" />
-
-    </LinearLayout>
-
-    <!-- Expanded content (Initially hidden) -->
-    <ScrollView
-        android:id="@+id/expanded_content"
-        android:layout_width="match_parent"
-        android:layout_height="300dp"
-        android:visibility="gone"
-        android:padding="16dp">
-
+        <!-- Header (Peek view) -->
         <LinearLayout
+            android:id="@+id/header_layout"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
+            android:layout_height="120dp"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true">
 
-            <!-- Available medicines -->
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Available Medicines"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@android:color/black"
-                android:layout_marginBottom="8dp" />
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rv_medicines"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp" />
-
-            <TextView
-                android:id="@+id/tv_reservation_info"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text=""
-                android:textSize="14sp"
-                android:textColor="#757575"
-                android:layout_marginBottom="16dp" />
-
-            <!-- Reservation buttons -->
             <LinearLayout
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="8dp">
+                android:layout_weight="1"
+                android:orientation="vertical">
 
-                <Button
-                    android:id="@+id/btn_select_all"
-                    android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/tv_pharmacy_name"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Select All"
-                    android:layout_marginEnd="8dp" />
+                    android:text="Pharmacy Name"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/black"
+                    android:maxLines="2"
+                    android:ellipsize="end" />
 
-                <Button
-                    android:id="@+id/btn_reserve"
-                    android:layout_width="0dp"
+                <TextView
+                    android:id="@+id/tv_distance"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Reserve"
-                    android:backgroundTint="#2196F3"
-                    android:textColor="@android:color/white" />
+                    android:text="Distance"
+                    android:textSize="14sp"
+                    android:textColor="#757575"
+                    android:layout_marginTop="4dp" />
+
+                <TextView
+                    android:id="@+id/tv_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Status"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="4dp"
+                    android:visibility="gone" />
 
             </LinearLayout>
 
+            <Button
+                android:id="@+id/btn_directions"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Directions"
+                android:drawableStart="@android:drawable/ic_menu_directions"
+                android:drawablePadding="4dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:backgroundTint="#2196F3"
+                android:textColor="@android:color/white" />
+
         </LinearLayout>
 
-    </ScrollView>
+        <!-- Expanded content -->
+        <androidx.core.widget.NestedScrollView
+            android:id="@+id/expanded_content"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:fillViewport="true">
 
-</LinearLayout>
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <!-- Tab Layout -->
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/tab_layout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    app:tabMode="fixed"
+                    app:tabGravity="fill"
+                    app:tabIndicatorColor="#2196F3"
+                    app:tabSelectedTextColor="#2196F3"
+                    app:tabTextColor="#757575"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Tab Content Container -->
+                <FrameLayout
+                    android:id="@+id/tab_content_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content">
+
+                    <!-- Inventory Section (Tab 1) - Just show medicines -->
+                    <LinearLayout
+                        android:id="@+id/inventory_section"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Available Medicines"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/black"
+                            android:layout_marginBottom="8dp" />
+
+                        <TextView
+                            android:id="@+id/tv_inventory_info"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Loading inventory..."
+                            android:textSize="14sp"
+                            android:textColor="#757575"
+                            android:layout_marginBottom="16dp" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rv_inventory"
+                            android:layout_width="match_parent"
+                            android:layout_height="400dp" />
+
+                    </LinearLayout>
+
+                    <!-- Reservation Section (Tab 2) - Medicines with reservation capability -->
+                    <LinearLayout
+                        android:id="@+id/reservation_section"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Make Reservation"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/black"
+                            android:layout_marginBottom="8dp" />
+
+                        <TextView
+                            android:id="@+id/tv_reservation_info"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Select medicines to reserve"
+                            android:textSize="14sp"
+                            android:textColor="#757575"
+                            android:layout_marginBottom="16dp" />
+
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/rv_reservation"
+                            android:layout_width="match_parent"
+                            android:layout_height="400dp"
+                            android:layout_marginBottom="16dp" />
+
+                        <!-- Selected summary -->
+                        <LinearLayout
+                            android:id="@+id/layout_selected_summary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:visibility="gone"
+                            android:padding="12dp"
+                            android:background="@drawable/item_background"
+                            android:layout_marginBottom="16dp">
+
+                            <TextView
+                                android:id="@+id/tv_selected_count"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Selected: 0 items"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tv_total_price"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Total: ₱0"
+                                android:textSize="14sp"
+                                android:layout_marginTop="4dp" />
+
+                        </LinearLayout>
+
+                        <!-- Reservation buttons -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="8dp">
+
+                            <Button
+                                android:id="@+id/btn_reserve"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="Reserve"
+                                android:backgroundTint="#2196F3"
+                                android:textColor="@android:color/white" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </FrameLayout>
+
+            </LinearLayout>
+
+        </androidx.core.widget.NestedScrollView>
+
+    </LinearLayout>
+
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

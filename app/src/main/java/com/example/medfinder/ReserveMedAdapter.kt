@@ -17,6 +17,31 @@ class ReservationMedicineAdapter(
 
     private val selectedMedicines = mutableMapOf<String, Pair<Medicine, Int>>()
 
+    // Clear all selections
+    fun clearAllSelections() {
+        selectedMedicines.clear()
+        notifyDataSetChanged()
+    }
+
+    // Select all available medicines
+    fun selectAllMedicines() {
+        selectedMedicines.clear()
+        medicineList.forEach { medicine ->
+            // Store the id in a local variable to avoid smart cast issues
+            val medicineId = medicine.id
+            if (medicine.stock > 0 && medicineId != null) {
+                selectedMedicines[medicineId] = Pair(medicine, 1)
+            }
+        }
+        notifyDataSetChanged()
+    }
+
+    // Deselect all medicines
+    fun deselectAllMedicines() {
+        selectedMedicines.clear()
+        notifyDataSetChanged()
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ReservationViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_reserve_med, parent, false)
@@ -25,6 +50,8 @@ class ReservationMedicineAdapter(
 
     override fun onBindViewHolder(holder: ReservationViewHolder, position: Int) {
         val medicine = medicineList[position]
+        // Store id in local variable to avoid repeated null checks and smart cast issues
+        val medicineId = medicine.id
 
         holder.name.text = medicine.medicine_name
         holder.brand.text = medicine.brand_name
@@ -53,19 +80,29 @@ class ReservationMedicineAdapter(
         holder.checkBox.setOnCheckedChangeListener(null) // Clear previous listener
 
         // Reset UI state
-        holder.checkBox.isChecked = selectedMedicines.containsKey(medicine.id)
+        val isSelected = if (medicineId != null) selectedMedicines.containsKey(medicineId) else false
+        holder.checkBox.isChecked = isSelected
         holder.quantityEditText.isEnabled = holder.checkBox.isChecked
+
         holder.quantityEditText.setText(
-            if (selectedMedicines.containsKey(medicine.id))
-                selectedMedicines[medicine.id]!!.second.toString()
+            if (isSelected && medicineId != null)
+                selectedMedicines[medicineId]!!.second.toString()
             else "1"
         )
 
         holder.checkBox.setOnCheckedChangeListener { _, isChecked ->
+            if (medicineId == null) {
+                holder.checkBox.isChecked = false
+                Toast.makeText(holder.itemView.context,
+                    "Medicine ID is missing",
+                    Toast.LENGTH_SHORT).show()
+                return@setOnCheckedChangeListener
+            }
+
             if (isChecked) {
                 val quantity = holder.quantityEditText.text.toString().toIntOrNull() ?: 1
                 if (quantity > 0 && quantity <= medicine.stock) {
-                    selectedMedicines[medicine.id!!] = Pair(medicine, quantity)
+                    selectedMedicines[medicineId] = Pair(medicine, quantity)
                     holder.quantityEditText.isEnabled = true
                 } else {
                     holder.checkBox.isChecked = false
@@ -74,19 +111,21 @@ class ReservationMedicineAdapter(
                         Toast.LENGTH_SHORT).show()
                 }
             } else {
-                selectedMedicines.remove(medicine.id)
+                selectedMedicines.remove(medicineId)
                 holder.quantityEditText.isEnabled = false
             }
         }
 
         holder.quantityEditText.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus && holder.checkBox.isChecked) {
+            if (medicineId == null || !holder.checkBox.isChecked) return@setOnFocusChangeListener
+
+            if (!hasFocus) {
                 val quantity = holder.quantityEditText.text.toString().toIntOrNull() ?: 1
                 if (quantity > 0 && quantity <= medicine.stock) {
-                    selectedMedicines[medicine.id!!] = Pair(medicine, quantity)
+                    selectedMedicines[medicineId] = Pair(medicine, quantity)
                 } else {
                     holder.quantityEditText.setText("1")
-                    selectedMedicines[medicine.id!!] = Pair(medicine, 1)
+                    selectedMedicines[medicineId] = Pair(medicine, 1)
                     Toast.makeText(holder.itemView.context,
                         "Quantity set to 1. Max available: ${medicine.stock}",
                         Toast.LENGTH_SHORT).show()

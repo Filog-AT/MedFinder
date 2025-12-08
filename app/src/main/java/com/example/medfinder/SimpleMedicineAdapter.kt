@@ -7,26 +7,27 @@ import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-class SimpleMedicineAdapter(private val medicineList: List<Medicine>) :
-    RecyclerView.Adapter<SimpleMedicineAdapter.ViewHolder>() {
+class SimpleMedicineAdapter(
+    private val medicineList: List<Medicine>
+) : RecyclerView.Adapter<SimpleMedicineAdapter.SimpleMedicineViewHolder>() {
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SimpleMedicineViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_simple_medicine, parent, false)
-        return ViewHolder(view)
+        return SimpleMedicineViewHolder(view)
     }
 
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+    override fun onBindViewHolder(holder: SimpleMedicineViewHolder, position: Int) {
         val medicine = medicineList[position]
         holder.name.text = medicine.medicine_name
-        holder.brand.text = "Brand: ${medicine.brand_name}"
+        holder.brand.text = medicine.brand_name
         holder.price.text = "Price: ₱${medicine.price}"
         holder.stock.text = "Stock: ${medicine.stock}"
     }
 
     override fun getItemCount(): Int = medicineList.size
 
-    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    class SimpleMedicineViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val name: TextView = itemView.findViewById(R.id.tv_medicine_name)
         val brand: TextView = itemView.findViewById(R.id.tv_brand)
         val price: TextView = itemView.findViewById(R.id.tv_price)

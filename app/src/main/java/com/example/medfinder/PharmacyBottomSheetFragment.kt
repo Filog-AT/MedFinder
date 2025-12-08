@@ -2,9 +2,6 @@ package com.example.medfinder
 
 import Medicine
 import android.app.Dialog
-import android.content.Intent
-import android.location.Location
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -15,13 +12,23 @@ import androidx.fragment.app.DialogFragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.gms.location.LocationServices
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.google.android.material.tabs.TabLayout
 import com.google.firebase.firestore.FirebaseFirestore
 import java.text.DecimalFormat
+import java.util.*
 
-class PharmacyBottomSheetFragment : DialogFragment() {
+class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
 
     private lateinit var pharmacyData: MapFragment.PharmacyData
     private val db = FirebaseFirestore.getInstance()
+    private lateinit var bottomSheetBehavior: BottomSheetBehavior<*>
+    private lateinit var bottomSheet: View
+    private lateinit var reservationMedicineAdapter: ReservationMedicineAdapter
+    private lateinit var simpleMedicineAdapter: SimpleMedicineAdapter
+    private var medicinesList = mutableListOf<Medicine>()
 
     companion object {
         private const val TAG = "PharmacyBottomSheet"
@@ -35,8 +42,9 @@ class PharmacyBottomSheetFragment : DialogFragment() {
         }
     }
 
-    override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
-        return Dialog(requireContext(), R.style.BottomSheetDialogTheme)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setStyle(STYLE_NORMAL, R.style.BottomSheetDialogTheme)
     }
 
     override fun onCreateView(
@@ -50,36 +58,31 @@ class PharmacyBottomSheetFragment : DialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Get pharmacy data
         pharmacyData = arguments?.getSerializable("pharmacy_data") as MapFragment.PharmacyData
-
         setupUI(view)
-
-        // Make dialog appear from bottom
-        dialog?.window?.setLayout(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        )
-        dialog?.window?.setGravity(android.view.Gravity.BOTTOM)
+        setupBottomSheetBehavior(view)
+        loadPharmacyMedicines()
     }
 
     private fun setupUI(view: View) {
-        // Find ALL views using findViewById
+        // Find views
         val tvPharmacyName = view.findViewById<TextView>(R.id.tv_pharmacy_name)
         val tvDistance = view.findViewById<TextView>(R.id.tv_distance)
         val tvStatus = view.findViewById<TextView>(R.id.tv_status)
         val btnDirections = view.findViewById<Button>(R.id.btn_directions)
-        val expandedContent = view.findViewById<ScrollView>(R.id.expanded_content)
+        val dragHandleContainer = view.findViewById<LinearLayout>(R.id.drag_handle_container)
         val headerLayout = view.findViewById<LinearLayout>(R.id.header_layout)
-        val rvMedicines = view.findViewById<RecyclerView>(R.id.rv_medicines)
+        val tabLayout = view.findViewById<TabLayout>(R.id.tab_layout)
+        val inventorySection = view.findViewById<LinearLayout>(R.id.inventory_section)
+        val reservationSection = view.findViewById<LinearLayout>(R.id.reservation_section)
+        val rvInventory = view.findViewById<RecyclerView>(R.id.rv_inventory)
+        val rvReservation = view.findViewById<RecyclerView>(R.id.rv_reservation)
+        val tvInventoryInfo = view.findViewById<TextView>(R.id.tv_inventory_info)
         val tvReservationInfo = view.findViewById<TextView>(R.id.tv_reservation_info)
-        val btnSelectAll = view.findViewById<Button>(R.id.btn_select_all)
         val btnReserve = view.findViewById<Button>(R.id.btn_reserve)
-
-        // Try to find optional views (they might not exist)
-        val layoutSelectedSummary = view.findViewById<LinearLayout?>(R.id.layout_selected_summary)
-        val tvSelectedCount = view.findViewById<TextView?>(R.id.tv_selected_count)
-        val tvTotalPrice = view.findViewById<TextView?>(R.id.tv_total_price)
+        val layoutSelectedSummary = view.findViewById<LinearLayout>(R.id.layout_selected_summary)
+        val tvSelectedCount = view.findViewById<TextView>(R.id.tv_selected_count)
+        val tvTotalPrice = view.findViewById<TextView>(R.id.tv_total_price)
 
         // Set pharmacy info
         tvPharmacyName.text = pharmacyData.name
@@ -105,72 +108,419 @@ class PharmacyBottomSheetFragment : DialogFragment() {
             tvStatus.visibility = View.GONE
         }
 
-        // Setup directions button - TWO OPTIONS:
+        // Setup directions button
         btnDirections.setOnClickListener {
-            // Option 1: Open internal directions (recommended)
             openInternalDirections()
-
-            // Option 2: Uncomment below to use Google Maps
-            // openDirectionsToPharmacy()
         }
 
-        // Setup header click to expand/collapse
+        // Setup drag handle and header
+        dragHandleContainer.setOnClickListener {
+            toggleBottomSheet()
+        }
+
         headerLayout.setOnClickListener {
-            if (expandedContent.visibility == View.VISIBLE) {
-                expandedContent.visibility = View.GONE
-            } else {
-                expandedContent.visibility = View.VISIBLE
-                loadPharmacyMedicines(rvMedicines, tvReservationInfo)
+            toggleBottomSheet()
+        }
+
+        // Setup tab layout
+        tabLayout.addTab(tabLayout.newTab().setText("Inventory"))
+        tabLayout.addTab(tabLayout.newTab().setText("Reservation"))
+
+        // Setup RecyclerViews
+        rvInventory.layoutManager = LinearLayoutManager(requireContext())
+        rvReservation.layoutManager = LinearLayoutManager(requireContext())
+
+        // Show initial content
+        showInventorySection(inventorySection, reservationSection)
+
+        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                when (tab?.position) {
+                    0 -> { // Inventory tab
+                        showInventorySection(inventorySection, reservationSection)
+                    }
+                    1 -> { // Reservation tab
+                        showReservationSection(inventorySection, reservationSection)
+                        updateSelectedSummary(layoutSelectedSummary, tvSelectedCount, tvTotalPrice)
+                    }
+                }
+            }
+
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
+
+        btnReserve.setOnClickListener {
+            createReservation(layoutSelectedSummary, tvSelectedCount, tvTotalPrice)
+        }
+
+        // Initialize selected summary
+        layoutSelectedSummary.visibility = View.GONE
+        tvSelectedCount.text = "Selected: 0 items"
+        tvTotalPrice.text = "Total: ₱0"
+    }
+
+    private fun updateSelectedSummary(
+        summaryLayout: LinearLayout,
+        selectedCountText: TextView,
+        totalPriceText: TextView
+    ) {
+        val selectedMedicines = reservationMedicineAdapter.getSelectedMedicines()
+
+        if (selectedMedicines.isNotEmpty()) {
+            val totalItems = selectedMedicines.sumOf { it.second }
+            val totalPrice = selectedMedicines.sumOf { (medicine, quantity) ->
+                medicine.price * quantity
+            }
+
+            selectedCountText.text = "Selected: $totalItems item(s)"
+            totalPriceText.text = "Total: ₱$totalPrice"
+            summaryLayout.visibility = View.VISIBLE
+        } else {
+            summaryLayout.visibility = View.GONE
+        }
+    }
+
+    private fun createReservation(
+        summaryLayout: LinearLayout,
+        selectedCountText: TextView,
+        totalPriceText: TextView
+    ) {
+        val selectedMedicines = reservationMedicineAdapter.getSelectedMedicines()
+
+        if (selectedMedicines.isEmpty()) {
+            Toast.makeText(requireContext(), "Please select at least one medicine", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Check if user is logged in
+        if (!LoginUtils.isUserLoggedIn(requireContext())) {
+            LoginUtils.redirectToLogin(requireContext(), "Please login to reserve medicines")
+            return
+        }
+
+        // Check if user is customer
+        if (!LoginUtils.isCustomer(requireContext())) {
+            Toast.makeText(requireContext(),
+                "Only customers can make reservations",
+                Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val userId = LoginUtils.getCurrentUserId(requireContext())
+        if (userId == null) {
+            Toast.makeText(requireContext(), "User not found. Please login again.", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Calculate total price
+        val totalPrice = selectedMedicines.sumOf { (medicine, quantity) ->
+            medicine.price * quantity
+        }
+
+        // Create reservation object
+        val reservation = Reservation(
+            user_id = userId,
+            pharmacy_id = pharmacyData.id,
+            medicines = selectedMedicines.map { (medicine, quantity) ->
+                MedicineItem(
+                    medicine_id = medicine.id ?: "", // Handle null ID
+                    medicine_name = medicine.medicine_name,
+                    quantity = quantity,
+                    price = medicine.price
+                )
+            },
+            status = "pending",
+            total_price = totalPrice,
+            created_at = System.currentTimeMillis()
+        )
+
+        // Save to Firestore
+        db.collection("Reservations")
+            .add(reservation)
+            .addOnSuccessListener { documentReference ->
+                Log.d(TAG, "Reservation created with ID: ${documentReference.id}")
+
+                // Update medicine stock
+                updateMedicineStock(selectedMedicines)
+
+                // Clear selection
+                reservationMedicineAdapter.clearAllSelections()
+                summaryLayout.visibility = View.GONE
+
+                Toast.makeText(requireContext(),
+                    "Reservation created successfully!",
+                    Toast.LENGTH_LONG).show()
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Error creating reservation", e)
+                Toast.makeText(requireContext(),
+                    "Error creating reservation: ${e.message}",
+                    Toast.LENGTH_LONG).show()
+            }
+    }
+
+    private fun updateMedicineStock(selectedMedicines: List<Pair<Medicine, Int>>) {
+        val batch = db.batch()
+
+        selectedMedicines.forEach { (medicine, quantity) ->
+            val medicineId = medicine.id
+            if (medicineId != null) {
+                val medicineRef = db.collection("Pharmacies")
+                    .document(pharmacyData.id)
+                    .collection("Medicines")
+                    .document(medicineId)
+
+                val newStock = medicine.stock - quantity
+                batch.update(medicineRef, "stock", newStock)
             }
         }
 
-        // Setup reservation buttons
-        btnSelectAll.setOnClickListener {
-            Toast.makeText(requireContext(), "Select All - To be implemented", Toast.LENGTH_SHORT).show()
-        }
-
-        btnReserve.setOnClickListener {
-            Toast.makeText(requireContext(), "Reserve - To be implemented", Toast.LENGTH_SHORT).show()
-        }
-
-        // Initialize optional views if they exist
-        layoutSelectedSummary?.visibility = View.GONE
-        tvSelectedCount?.text = "Selected: 0 items"
-        tvTotalPrice?.text = "Total: ₱0"
+        batch.commit()
+            .addOnSuccessListener {
+                Log.d(TAG, "Medicine stock updated successfully")
+                // Refresh medicines list
+                loadPharmacyMedicines()
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Error updating medicine stock", e)
+            }
     }
 
-    private fun loadPharmacyMedicines(recyclerView: RecyclerView, infoTextView: TextView) {
+    private fun showInventorySection(inventorySection: LinearLayout, reservationSection: LinearLayout) {
+        inventorySection.visibility = View.VISIBLE
+        reservationSection.visibility = View.GONE
+    }
+
+    private fun showReservationSection(inventorySection: LinearLayout, reservationSection: LinearLayout) {
+        inventorySection.visibility = View.GONE
+        reservationSection.visibility = View.VISIBLE
+    }
+
+
+    private fun loadPharmacyMedicines() {
         db.collection("Pharmacies")
             .document(pharmacyData.id)
             .collection("Medicines")
             .get()
             .addOnSuccessListener { result ->
-                val medicinesList = mutableListOf<Medicine>()
+                medicinesList.clear()
                 for (document in result) {
                     val medicine = document.toObject(Medicine::class.java)
                     medicine.id = document.id
                     medicinesList.add(medicine)
                 }
 
-                if (medicinesList.isEmpty()) {
-                    infoTextView.text = "No medicines available at this pharmacy"
-                    recyclerView.visibility = View.GONE
-                } else {
-                    infoTextView.text = "Available medicines: ${medicinesList.size}"
-                    recyclerView.layoutManager = LinearLayoutManager(requireContext())
-                    recyclerView.adapter = SimpleMedicineAdapter(medicinesList)
-                    recyclerView.visibility = View.VISIBLE
-                }
+                updateAdapters()
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Error loading medicines", e)
-                infoTextView.text = "Error loading medicines"
+                view?.findViewById<TextView>(R.id.tv_inventory_info)?.text = "Error loading medicines"
+                view?.findViewById<TextView>(R.id.tv_reservation_info)?.text = "Error loading medicines"
             }
     }
 
-    // NEW FUNCTION: Open internal directions
+    private fun updateAdapters() {
+        val view = requireView()
+        val tvInventoryInfo = view.findViewById<TextView>(R.id.tv_inventory_info)
+        val tvReservationInfo = view.findViewById<TextView>(R.id.tv_reservation_info)
+        val rvInventory = view.findViewById<RecyclerView>(R.id.rv_inventory)
+        val rvReservation = view.findViewById<RecyclerView>(R.id.rv_reservation)
+
+        if (medicinesList.isEmpty()) {
+            tvInventoryInfo.text = "No medicines available at this pharmacy"
+            tvReservationInfo.text = "No medicines available for reservation"
+            rvInventory.visibility = View.GONE
+            rvReservation.visibility = View.GONE
+        } else {
+            tvInventoryInfo.text = "Available medicines: ${medicinesList.size}"
+            tvReservationInfo.text = "Select medicines to reserve (${medicinesList.size} available)"
+
+            // Inventory tab: Simple adapter (view only)
+            simpleMedicineAdapter = SimpleMedicineAdapter(medicinesList)
+            rvInventory.adapter = simpleMedicineAdapter
+            rvInventory.visibility = View.VISIBLE
+
+            // Reservation tab: Reservation adapter (can select and reserve)
+            val canReserve = LoginUtils.isCustomer(requireContext())
+            reservationMedicineAdapter = ReservationMedicineAdapter(medicinesList, canReserve)
+            rvReservation.adapter = reservationMedicineAdapter
+            rvReservation.visibility = View.VISIBLE
+        }
+    }
+
+    private fun loadPharmacyReservations(
+        recyclerView: RecyclerView,
+        infoTextView: TextView,
+        noReservationsText: TextView
+    ) {
+        // Check if current user is pharmacy owner
+        val currentUserId = LoginUtils.getCurrentUserId(requireContext())
+        val isPharmacyOwner = LoginUtils.isPharmacy(requireContext())
+
+        if (currentUserId == null) {
+            infoTextView.text = "Please login to view reservations"
+            recyclerView.visibility = View.GONE
+            noReservationsText.visibility = View.VISIBLE
+            noReservationsText.text = "Please login to view reservations"
+            return
+        }
+
+        if (!isPharmacyOwner) {
+            infoTextView.text = "Only pharmacy owners can view reservations"
+            recyclerView.visibility = View.GONE
+            noReservationsText.visibility = View.VISIBLE
+            noReservationsText.text = "Only pharmacy owners can view reservations"
+            return
+        }
+
+        // First, check if user is the owner of this pharmacy
+        db.collection("Pharmacies")
+            .document(pharmacyData.id)
+            .get()
+            .addOnSuccessListener { pharmacyDoc ->
+                if (pharmacyDoc.exists()) {
+                    val ownerId = pharmacyDoc.getString("owner_id")
+
+                    if (ownerId != currentUserId) {
+                        infoTextView.text = "You are not the owner of this pharmacy"
+                        recyclerView.visibility = View.GONE
+                        noReservationsText.visibility = View.VISIBLE
+                        noReservationsText.text = "You are not the owner of this pharmacy"
+                        return@addOnSuccessListener
+                    }
+
+                    // User is the owner, load reservations
+                    loadReservationsForPharmacy(recyclerView, infoTextView, noReservationsText)
+                } else {
+                    infoTextView.text = "Pharmacy not found"
+                    recyclerView.visibility = View.GONE
+                    noReservationsText.visibility = View.VISIBLE
+                    noReservationsText.text = "Pharmacy not found"
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Error checking pharmacy ownership", e)
+                infoTextView.text = "Error checking permissions"
+                recyclerView.visibility = View.GONE
+                noReservationsText.visibility = View.VISIBLE
+                noReservationsText.text = "Error checking permissions"
+            }
+    }
+
+    private fun loadReservationsForPharmacy(
+        recyclerView: RecyclerView,
+        infoTextView: TextView,
+        noReservationsText: TextView
+    ) {
+        // Load reservations for this pharmacy
+        db.collection("Reservations")
+            .whereEqualTo("pharmacy_id", pharmacyData.id)
+            .whereEqualTo("status", "pending")
+            .orderBy("created_at", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .get()
+            .addOnSuccessListener { result ->
+                Log.d(TAG, "Found ${result.size()} pending reservations")
+
+                val reservationsList = mutableListOf<Reservation>()
+                for (document in result) {
+                    try {
+                        val reservation = document.toObject(Reservation::class.java)
+                        reservation.id = document.id
+                        reservationsList.add(reservation)
+                        Log.d(TAG, "Reservation added: ${reservation.id}, Status: ${reservation.status}")
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error parsing reservation document: ${e.message}")
+                    }
+                }
+
+                if (reservationsList.isEmpty()) {
+                    infoTextView.text = "No pending reservations"
+                    recyclerView.visibility = View.GONE
+                    noReservationsText.visibility = View.VISIBLE
+                    noReservationsText.text = "No pending reservations found"
+                } else {
+                    infoTextView.text = "Pending reservations: ${reservationsList.size}"
+                    recyclerView.layoutManager = LinearLayoutManager(requireContext())
+
+                    // Use the ReservationItemAdapter
+                    recyclerView.adapter = ReservationItemAdapter(reservationsList) { reservationId, newStatus ->
+                        updateReservationStatus(reservationId, newStatus, recyclerView, infoTextView, noReservationsText)
+                    }
+                    recyclerView.visibility = View.VISIBLE
+                    noReservationsText.visibility = View.GONE
+
+                    Log.d(TAG, "Loaded ${reservationsList.size} reservations into RecyclerView")
+                }
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Error loading reservations", e)
+                infoTextView.text = "Error loading reservations"
+                recyclerView.visibility = View.GONE
+                noReservationsText.visibility = View.VISIBLE
+                noReservationsText.text = "Error loading reservations: ${e.message}"
+            }
+    }
+
+    private fun updateReservationStatus(
+        reservationId: String,
+        newStatus: String,
+        recyclerView: RecyclerView,
+        infoTextView: TextView,
+        noReservationsText: TextView
+    ) {
+        db.collection("Reservations")
+            .document(reservationId)
+            .update("status", newStatus)
+            .addOnSuccessListener {
+                Toast.makeText(requireContext(), "Reservation $newStatus", Toast.LENGTH_SHORT).show()
+                // Refresh the reservations list
+                loadReservationsForPharmacy(recyclerView, infoTextView, noReservationsText)
+            }
+            .addOnFailureListener { e ->
+                Log.e(TAG, "Error updating reservation", e)
+                Toast.makeText(requireContext(), "Error updating reservation", Toast.LENGTH_SHORT).show()
+            }
+    }
+
+    private fun setupBottomSheetBehavior(view: View) {
+        bottomSheet = view.findViewById(R.id.bottom_sheet)
+        bottomSheetBehavior = BottomSheetBehavior.from(bottomSheet)
+
+        bottomSheetBehavior.peekHeight = 400
+        bottomSheetBehavior.isHideable = true
+        bottomSheetBehavior.isFitToContents = false
+        bottomSheetBehavior.skipCollapsed = false
+
+        bottomSheetBehavior.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
+            override fun onStateChanged(bottomSheet: View, newState: Int) {
+                when (newState) {
+                    BottomSheetBehavior.STATE_EXPANDED -> {
+                        Log.d(TAG, "Bottom Sheet: EXPANDED")
+                    }
+                    BottomSheetBehavior.STATE_COLLAPSED -> {
+                        Log.d(TAG, "Bottom Sheet: COLLAPSED")
+                    }
+                    BottomSheetBehavior.STATE_HIDDEN -> {
+                        dismiss()
+                    }
+                    else -> {}
+                }
+            }
+
+            override fun onSlide(bottomSheet: View, slideOffset: Float) {}
+        })
+    }
+
+    private fun toggleBottomSheet() {
+        if (bottomSheetBehavior.state == BottomSheetBehavior.STATE_EXPANDED) {
+            bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+        } else {
+            bottomSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+        }
+    }
+
     private fun openInternalDirections() {
-        // Always get location directly - simplest solution
         getFreshLocation()
     }
 
@@ -188,163 +538,7 @@ class PharmacyBottomSheetFragment : DialogFragment() {
                 requireContext(),
                 android.Manifest.permission.ACCESS_COARSE_LOCATION
             ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) {
-            Log.d(TAG, "Location permission NOT granted")
-            requestLocationPermission()
-            return
-        }
-
+        )
         Log.d(TAG, "Location permission granted, getting last location")
-
-        // Try to get last known location
-        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-            Log.d(TAG, "Last location received: $location")
-            if (location != null) {
-                Log.d(TAG, "We have location: ${location.latitude}, ${location.longitude}")
-                // We have location, show directions
-                showDirectionFragment(location)
-            } else {
-                Log.d(TAG, "No last location available, requesting fresh location")
-                // No last location, request a fresh one
-                requestFreshLocation()
-            }
-        }.addOnFailureListener { e ->
-            Log.e(TAG, "Error getting location: ${e.message}", e)
-            Toast.makeText(requireContext(),
-                "Error getting location",
-                Toast.LENGTH_LONG).show()
-        }
-    }
-
-    private fun requestFreshLocation() {
-        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
-
-        // Check permission again before requesting updates
-        if (androidx.core.app.ActivityCompat.checkSelfPermission(
-                requireContext(),
-                android.Manifest.permission.ACCESS_FINE_LOCATION
-            ) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
-            androidx.core.app.ActivityCompat.checkSelfPermission(
-                requireContext(),
-                android.Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != android.content.pm.PackageManager.PERMISSION_GRANTED
-        ) {
-            Toast.makeText(requireContext(),
-                "Location permission required",
-                Toast.LENGTH_LONG).show()
-            return
-        }
-
-        val locationRequest = com.google.android.gms.location.LocationRequest.create().apply {
-            priority = com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY
-            numUpdates = 1
-            interval = 10000
-            fastestInterval = 5000
-        }
-
-        val locationCallback = object : com.google.android.gms.location.LocationCallback() {
-            override fun onLocationResult(locationResult: com.google.android.gms.location.LocationResult) {
-                locationResult.lastLocation?.let { location ->
-                    showDirectionFragment(location)
-                } ?: run {
-                    Toast.makeText(requireContext(),
-                        "Could not get location. Please try again.",
-                        Toast.LENGTH_LONG).show()
-                }
-                fusedLocationClient.removeLocationUpdates(this)
-            }
-        }
-
-        // This is safe now because we checked permissions
-        fusedLocationClient.requestLocationUpdates(
-            locationRequest,
-            locationCallback,
-            android.os.Looper.getMainLooper()
-        )
-
-        Toast.makeText(requireContext(),
-            "Getting your current location...",
-            Toast.LENGTH_SHORT).show()
-    }
-
-    private fun requestLocationPermission() {
-        val permissions = arrayOf(
-            android.Manifest.permission.ACCESS_FINE_LOCATION,
-            android.Manifest.permission.ACCESS_COARSE_LOCATION
-        )
-
-        // Check if we should show explanation
-        if (androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(
-                requireActivity(),
-                android.Manifest.permission.ACCESS_FINE_LOCATION
-            )) {
-            // Show explanation dialog
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                .setTitle("Location Permission Needed")
-                .setMessage("This app needs location permission to show directions to the pharmacy.")
-                .setPositiveButton("OK") { _, _ ->
-                    // Request permission after explanation
-                    androidx.core.app.ActivityCompat.requestPermissions(
-                        requireActivity(),
-                        permissions,
-                        1001
-                    )
-                }
-                .setNegativeButton("Cancel") { dialog, _ ->
-                    dialog.dismiss()
-                    Toast.makeText(requireContext(),
-                        "Location permission denied. Cannot show directions.",
-                        Toast.LENGTH_LONG).show()
-                }
-                .create()
-                .show()
-        } else {
-            // Request permission directly
-            androidx.core.app.ActivityCompat.requestPermissions(
-                requireActivity(),
-                permissions,
-                1001
-            )
-        }
-    }
-
-    // Handle permission result
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        if (requestCode == 1001) {
-            if (grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                // Permission granted, try to get location again
-                getFreshLocation()
-            } else {
-                Toast.makeText(requireContext(),
-                    "Location permission denied. Cannot show directions.",
-                    Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private fun showDirectionFragment(location: android.location.Location) {
-        // Start NavigationActivity with primitive types
-        try {
-            NavigationActivity.startNavigation(
-                requireContext(),
-                pharmacyData.id,
-                pharmacyData.name,
-                pharmacyData.location.latitude,
-                pharmacyData.location.longitude,
-                location
-            )
-            dismiss()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error starting navigation: ${e.message}", e)
-            Toast.makeText(requireContext(),
-                "Error starting navigation",
-                Toast.LENGTH_SHORT).show()
-        }
     }
 }

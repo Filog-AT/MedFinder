@@ -12,20 +12,22 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="16sp"
-        android:textStyle="bold"/>
+        android:textStyle="bold"
+        android:textColor="@android:color/black"/>
 
     <TextView
         android:id="@+id/tv_brand"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="14sp"
-        android:textColor="#757575"/>
+        android:textColor="#757575"
+        android:layout_marginTop="2dp"/>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginTop="4dp">
+        android:layout_marginTop="8dp">
 
         <TextView
             android:id="@+id/tv_price"
@@ -39,7 +41,8 @@
             android:id="@+id/tv_stock"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="14sp"/>
+            android:textSize="14sp"
+            android:textColor="#4CAF50"/>
     </LinearLayout>
 
 </LinearLayout>
