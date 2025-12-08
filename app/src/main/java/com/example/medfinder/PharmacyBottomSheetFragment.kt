@@ -30,9 +30,12 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
     private val db = FirebaseFirestore.getInstance()
     private lateinit var bottomSheetBehavior: BottomSheetBehavior<*>
     private lateinit var bottomSheet: View
-    private lateinit var reservationMedicineAdapter: ReservationMedicineAdapter
+    private lateinit var nonPrescriptionAdapter: ReservationMedicineAdapter
+    private lateinit var prescriptionAdapter: ReservationMedicineAdapter
     private lateinit var simpleMedicineAdapter: SimpleMedicineAdapter
-    private var medicinesList = mutableListOf<Medicine>()
+    private var allMedicinesList = mutableListOf<Medicine>()
+    private var nonPrescriptionMeds = mutableListOf<Medicine>()
+    private var prescriptionMeds = mutableListOf<Medicine>()
 
     companion object {
         private const val TAG = "PharmacyBottomSheet"
@@ -76,17 +79,20 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
         val btnDirections = view.findViewById<Button>(R.id.btn_directions)
         val dragHandleContainer = view.findViewById<LinearLayout>(R.id.drag_handle_container)
         val headerLayout = view.findViewById<LinearLayout>(R.id.header_layout)
-        val tabLayout = view.findViewById<TabLayout>(R.id.tab_layout)
+        val mainTabLayout = view.findViewById<TabLayout>(R.id.tab_layout)
+        val categoryTabLayout = view.findViewById<TabLayout>(R.id.med_category_tabs)
         val inventorySection = view.findViewById<LinearLayout>(R.id.inventory_section)
         val reservationSection = view.findViewById<LinearLayout>(R.id.reservation_section)
         val rvInventory = view.findViewById<RecyclerView>(R.id.rv_inventory)
-        val rvReservation = view.findViewById<RecyclerView>(R.id.rv_reservation)
+        val rvNonPrescription = view.findViewById<RecyclerView>(R.id.rv_non_prescription)
+        val rvPrescription = view.findViewById<RecyclerView>(R.id.rv_prescription)
         val tvInventoryInfo = view.findViewById<TextView>(R.id.tv_inventory_info)
         val tvReservationInfo = view.findViewById<TextView>(R.id.tv_reservation_info)
         val btnReserve = view.findViewById<Button>(R.id.btn_reserve)
         val layoutSelectedSummary = view.findViewById<LinearLayout>(R.id.layout_selected_summary)
         val tvSelectedCount = view.findViewById<TextView>(R.id.tv_selected_count)
         val tvTotalPrice = view.findViewById<TextView>(R.id.tv_total_price)
+        val tvPrescriptionReminder = view.findViewById<TextView>(R.id.tv_prescription_reminder)
 
         // Set pharmacy info
         tvPharmacyName.text = pharmacyData.name
@@ -114,11 +120,6 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
 
         // Setup directions button
         btnDirections.setOnClickListener {
-            // Check if pharmacy has location
-            if (pharmacyData.location == null) {
-                Toast.makeText(requireContext(), "Pharmacy location not available", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
             openInternalDirections()
         }
 
@@ -131,18 +132,24 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
             toggleBottomSheet()
         }
 
-        // Setup tab layout
-        tabLayout.addTab(tabLayout.newTab().setText("Inventory"))
-        tabLayout.addTab(tabLayout.newTab().setText("Reservation"))
+        // Setup main tab layout (Inventory/Reservation)
+        mainTabLayout.addTab(mainTabLayout.newTab().setText("Inventory"))
+        mainTabLayout.addTab(mainTabLayout.newTab().setText("Reservation"))
+
+        // Setup category tabs (Non-Prescription/Prescription)
+        categoryTabLayout.addTab(categoryTabLayout.newTab().setText("Non-Prescription"))
+        categoryTabLayout.addTab(categoryTabLayout.newTab().setText("Prescription"))
 
         // Setup RecyclerViews
         rvInventory.layoutManager = LinearLayoutManager(requireContext())
-        rvReservation.layoutManager = LinearLayoutManager(requireContext())
+        rvNonPrescription.layoutManager = LinearLayoutManager(requireContext())
+        rvPrescription.layoutManager = LinearLayoutManager(requireContext())
 
         // Show initial content
         showInventorySection(inventorySection, reservationSection)
 
-        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+        // Main tab listener
+        mainTabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 when (tab?.position) {
                     0 -> { // Inventory tab
@@ -150,7 +157,7 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
                     }
                     1 -> { // Reservation tab
                         showReservationSection(inventorySection, reservationSection)
-                        updateSelectedSummary(layoutSelectedSummary, tvSelectedCount, tvTotalPrice)
+                        updateSelectedSummary(layoutSelectedSummary, tvSelectedCount, tvTotalPrice, tvPrescriptionReminder)
                     }
                 }
             }
@@ -159,56 +166,96 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
             override fun onTabReselected(tab: TabLayout.Tab?) {}
         })
 
+        // Medicine category tab listener
+        categoryTabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                when (tab?.position) {
+                    0 -> { // Non-Prescription tab
+                        rvNonPrescription.visibility = View.VISIBLE
+                        rvPrescription.visibility = View.GONE
+                        tvReservationInfo.text = "Non-prescription medicines: ${nonPrescriptionMeds.size} available"
+                    }
+                    1 -> { // Prescription tab
+                        rvNonPrescription.visibility = View.GONE
+                        rvPrescription.visibility = View.VISIBLE
+                        tvReservationInfo.text = "Prescription medicines: ${prescriptionMeds.size} available"
+                    }
+                }
+            }
+
+            override fun onTabUnselected(tab: TabLayout.Tab?) {}
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
+
+        // Setup Reserve button
         btnReserve.setOnClickListener {
-            createReservation(layoutSelectedSummary, tvSelectedCount, tvTotalPrice)
+            createReservation(layoutSelectedSummary, tvSelectedCount, tvTotalPrice, tvPrescriptionReminder)
         }
 
         // Initialize selected summary
         layoutSelectedSummary.visibility = View.GONE
         tvSelectedCount.text = "Selected: 0 items"
         tvTotalPrice.text = "Total: ₱0"
+        tvPrescriptionReminder.visibility = View.GONE
     }
 
     private fun updateSelectedSummary(
         summaryLayout: LinearLayout,
         selectedCountText: TextView,
-        totalPriceText: TextView
+        totalPriceText: TextView,
+        prescriptionReminderText: TextView
     ) {
-        val selectedMedicines = reservationMedicineAdapter.getSelectedMedicines()
+        // Get selected medicines from BOTH adapters
+        val nonPrescriptionSelected = nonPrescriptionAdapter.getSelectedMedicines()
+        val prescriptionSelected = prescriptionAdapter.getSelectedMedicines()
+        val allSelectedMedicines = nonPrescriptionSelected + prescriptionSelected
 
-        if (selectedMedicines.isNotEmpty()) {
-            val totalItems = selectedMedicines.sumOf { it.second }
-            val totalPrice = selectedMedicines.sumOf { (medicine, quantity) ->
+        if (allSelectedMedicines.isNotEmpty()) {
+            val totalItems = allSelectedMedicines.sumOf { it.second }
+            val totalPrice = allSelectedMedicines.sumOf { (medicine, quantity) ->
                 medicine.price * quantity
             }
+
+            val hasPrescriptionMeds = prescriptionSelected.isNotEmpty()
 
             selectedCountText.text = "Selected: $totalItems item(s)"
             totalPriceText.text = "Total: ₱$totalPrice"
             summaryLayout.visibility = View.VISIBLE
+
+            // Show prescription reminder if any prescription medicines are selected
+            if (hasPrescriptionMeds) {
+                prescriptionReminderText.visibility = View.VISIBLE
+            } else {
+                prescriptionReminderText.visibility = View.GONE
+            }
         } else {
             summaryLayout.visibility = View.GONE
+            prescriptionReminderText.visibility = View.GONE
         }
     }
 
     private fun createReservation(
         summaryLayout: LinearLayout,
         selectedCountText: TextView,
-        totalPriceText: TextView
+        totalPriceText: TextView,
+        prescriptionReminderText: TextView
     ) {
-        val selectedMedicines = reservationMedicineAdapter.getSelectedMedicines()
+        // Get selected medicines from BOTH adapters
+        val nonPrescriptionSelected = nonPrescriptionAdapter.getSelectedMedicines()
+        val prescriptionSelected = prescriptionAdapter.getSelectedMedicines()
+        val allSelectedMedicines = nonPrescriptionSelected + prescriptionSelected
 
-        if (selectedMedicines.isEmpty()) {
+        if (allSelectedMedicines.isEmpty()) {
             Toast.makeText(requireContext(), "Please select at least one medicine", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Check if user is logged in
+        // Check if user is logged in as customer
         if (!LoginUtils.isUserLoggedIn(requireContext())) {
             LoginUtils.redirectToLogin(requireContext(), "Please login to reserve medicines")
             return
         }
 
-        // Check if user is customer
         if (!LoginUtils.isCustomer(requireContext())) {
             Toast.makeText(requireContext(),
                 "Only customers can make reservations",
@@ -222,26 +269,31 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
             return
         }
 
-        // Calculate total price
-        val totalPrice = selectedMedicines.sumOf { (medicine, quantity) ->
+        // Calculate total price and check for prescription medicines
+        val totalPrice = allSelectedMedicines.sumOf { (medicine, quantity) ->
             medicine.price * quantity
         }
+
+        // Check if any selected medicines require prescription
+        val hasPrescriptionMeds = prescriptionSelected.isNotEmpty()
 
         // Create reservation object
         val reservation = Reservation(
             user_id = userId,
             pharmacy_id = pharmacyData.id,
-            medicines = selectedMedicines.map { (medicine, quantity) ->
+            medicines = allSelectedMedicines.map { (medicine, quantity) ->
                 MedicineItem(
-                    medicine_id = medicine.id ?: "", // Handle null ID
+                    medicine_id = medicine.id ?: "",
                     medicine_name = medicine.medicine_name,
                     quantity = quantity,
-                    price = medicine.price
+                    price = medicine.price,
+                    requires_prescription = medicine.requires_prescription
                 )
             },
             status = "pending",
             total_price = totalPrice,
-            created_at = System.currentTimeMillis()
+            created_at = System.currentTimeMillis(),
+            has_prescription_meds = hasPrescriptionMeds
         )
 
         // Save to Firestore
@@ -251,15 +303,25 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
                 Log.d(TAG, "Reservation created with ID: ${documentReference.id}")
 
                 // Update medicine stock
-                updateMedicineStock(selectedMedicines)
+                updateMedicineStock(allSelectedMedicines)
 
-                // Clear selection
-                reservationMedicineAdapter.clearAllSelections()
+                // Clear selections from both adapters
+                nonPrescriptionAdapter.clearAllSelections()
+                prescriptionAdapter.clearAllSelections()
                 summaryLayout.visibility = View.GONE
+                prescriptionReminderText.visibility = View.GONE
 
-                Toast.makeText(requireContext(),
-                    "Reservation created successfully!",
-                    Toast.LENGTH_LONG).show()
+                // Show appropriate message
+                val message = if (hasPrescriptionMeds) {
+                    "Reservation created! Remember to bring your prescription(s) when claiming."
+                } else {
+                    "Reservation created successfully!"
+                }
+
+                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show()
+
+                // Refresh the lists to update stock
+                loadPharmacyMedicines()
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Error creating reservation", e)
@@ -288,8 +350,6 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
         batch.commit()
             .addOnSuccessListener {
                 Log.d(TAG, "Medicine stock updated successfully")
-                // Refresh medicines list
-                loadPharmacyMedicines()
             }
             .addOnFailureListener { e ->
                 Log.e(TAG, "Error updating medicine stock", e)
@@ -306,18 +366,27 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
         reservationSection.visibility = View.VISIBLE
     }
 
-
     private fun loadPharmacyMedicines() {
         db.collection("Pharmacies")
             .document(pharmacyData.id)
             .collection("Medicines")
             .get()
             .addOnSuccessListener { result ->
-                medicinesList.clear()
+                allMedicinesList.clear()
+                nonPrescriptionMeds.clear()
+                prescriptionMeds.clear()
+
                 for (document in result) {
                     val medicine = document.toObject(Medicine::class.java)
                     medicine.id = document.id
-                    medicinesList.add(medicine)
+                    allMedicinesList.add(medicine)
+
+                    // Separate into prescription and non-prescription
+                    if (medicine.requires_prescription) {
+                        prescriptionMeds.add(medicine)
+                    } else {
+                        nonPrescriptionMeds.add(medicine)
+                    }
                 }
 
                 updateAdapters()
@@ -329,34 +398,55 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
             }
     }
 
+
     private fun updateAdapters() {
         val view = requireView()
         val tvInventoryInfo = view.findViewById<TextView>(R.id.tv_inventory_info)
         val tvReservationInfo = view.findViewById<TextView>(R.id.tv_reservation_info)
         val rvInventory = view.findViewById<RecyclerView>(R.id.rv_inventory)
-        val rvReservation = view.findViewById<RecyclerView>(R.id.rv_reservation)
+        val rvNonPrescription = view.findViewById<RecyclerView>(R.id.rv_non_prescription)
+        val rvPrescription = view.findViewById<RecyclerView>(R.id.rv_prescription)
+        val categoryTabLayout = view.findViewById<TabLayout>(R.id.med_category_tabs)
 
-        if (medicinesList.isEmpty()) {
+        if (allMedicinesList.isEmpty()) {
             tvInventoryInfo.text = "No medicines available at this pharmacy"
             tvReservationInfo.text = "No medicines available for reservation"
             rvInventory.visibility = View.GONE
-            rvReservation.visibility = View.GONE
+            rvNonPrescription.visibility = View.GONE
+            rvPrescription.visibility = View.GONE
         } else {
-            tvInventoryInfo.text = "Available medicines: ${medicinesList.size}"
-            tvReservationInfo.text = "Select medicines to reserve (${medicinesList.size} available)"
+            tvInventoryInfo.text = "Available medicines: ${allMedicinesList.size}"
+
+            // Update category tabs count
+            val nonPrescriptionTab = categoryTabLayout.getTabAt(0)
+            val prescriptionTab = categoryTabLayout.getTabAt(1)
+
+            nonPrescriptionTab?.text = "Non-Prescription (${nonPrescriptionMeds.size})"
+            prescriptionTab?.text = "Prescription (${prescriptionMeds.size})"
+
+            // Set initial reservation info
+            tvReservationInfo.text = "Non-prescription medicines: ${nonPrescriptionMeds.size} available"
 
             // Inventory tab: Simple adapter (view only)
-            simpleMedicineAdapter = SimpleMedicineAdapter(medicinesList)
+            simpleMedicineAdapter = SimpleMedicineAdapter(allMedicinesList)
             rvInventory.adapter = simpleMedicineAdapter
             rvInventory.visibility = View.VISIBLE
 
-            // Reservation tab: Reservation adapter (can select and reserve)
+            // Reservation tabs: Separate adapters
             val canReserve = LoginUtils.isCustomer(requireContext())
-            reservationMedicineAdapter = ReservationMedicineAdapter(medicinesList, canReserve)
-            rvReservation.adapter = reservationMedicineAdapter
-            rvReservation.visibility = View.VISIBLE
+
+            // Non-prescription adapter
+            nonPrescriptionAdapter = ReservationMedicineAdapter(nonPrescriptionMeds, canReserve)
+            rvNonPrescription.adapter = nonPrescriptionAdapter
+            rvNonPrescription.visibility = View.VISIBLE
+
+            // Prescription adapter
+            prescriptionAdapter = ReservationMedicineAdapter(prescriptionMeds, canReserve)
+            rvPrescription.adapter = prescriptionAdapter
+            rvPrescription.visibility = View.GONE // Hidden initially
         }
     }
+
 
     private fun loadPharmacyReservations(
         recyclerView: RecyclerView,
@@ -520,6 +610,7 @@ class PharmacyBottomSheetFragment : BottomSheetDialogFragment() {
             override fun onSlide(bottomSheet: View, slideOffset: Float) {}
         })
     }
+
 
     private fun toggleBottomSheet() {
         if (bottomSheetBehavior.state == BottomSheetBehavior.STATE_EXPANDED) {

@@ -188,6 +188,18 @@
                             android:textColor="@android:color/black"
                             android:layout_marginBottom="8dp" />
 
+                        <!-- Category Tabs -->
+                        <com.google.android.material.tabs.TabLayout
+                            android:id="@+id/med_category_tabs"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            app:tabMode="fixed"
+                            app:tabGravity="fill"
+                            app:tabIndicatorColor="#2196F3"
+                            app:tabSelectedTextColor="#2196F3"
+                            app:tabTextColor="#757575"
+                            android:layout_marginBottom="16dp" />
+
                         <TextView
                             android:id="@+id/tv_reservation_info"
                             android:layout_width="match_parent"
@@ -197,11 +209,27 @@
                             android:textColor="#757575"
                             android:layout_marginBottom="16dp" />
 
-                        <androidx.recyclerview.widget.RecyclerView
-                            android:id="@+id/rv_reservation"
+                        <!-- Tab Content Container -->
+                        <FrameLayout
+                            android:id="@+id/med_category_container"
                             android:layout_width="match_parent"
-                            android:layout_height="400dp"
-                            android:layout_marginBottom="16dp" />
+                            android:layout_height="400dp">
+
+                            <!-- Non-Prescription Medicines -->
+                            <androidx.recyclerview.widget.RecyclerView
+                                android:id="@+id/rv_non_prescription"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:visibility="visible" />
+
+                            <!-- Prescription Medicines -->
+                            <androidx.recyclerview.widget.RecyclerView
+                                android:id="@+id/rv_prescription"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:visibility="gone" />
+
+                        </FrameLayout>
 
                         <!-- Selected summary -->
                         <LinearLayout
@@ -230,25 +258,27 @@
                                 android:textSize="14sp"
                                 android:layout_marginTop="4dp" />
 
+                            <!-- Prescription reminder -->
+                            <TextView
+                                android:id="@+id/tv_prescription_reminder"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="⚠️ Remember to bring prescription(s) for selected medicines"
+                                android:textSize="12sp"
+                                android:textColor="@android:color/holo_orange_dark"
+                                android:visibility="gone"
+                                android:layout_marginTop="8dp" />
+
                         </LinearLayout>
 
-                        <!-- Reservation buttons -->
-                        <LinearLayout
+                        <!-- Reserve button -->
+                        <Button
+                            android:id="@+id/btn_reserve"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:layout_marginTop="8dp">
-
-                            <Button
-                                android:id="@+id/btn_reserve"
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="Reserve"
-                                android:backgroundTint="#2196F3"
-                                android:textColor="@android:color/white" />
-
-                        </LinearLayout>
+                            android:text="Reserve Selected Medicines"
+                            android:backgroundTint="#2196F3"
+                            android:textColor="@android:color/white" />
 
                     </LinearLayout>
 
